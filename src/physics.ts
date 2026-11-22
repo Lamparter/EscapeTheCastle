@@ -32,6 +32,8 @@ export interface ImpactInfo {
 	speed: number;
 	solid: Solid;
 	axis: "x" | "y";
+	/** True when the body hit the top of the solid (a landing). */
+	fromAbove: boolean;
 }
 
 export function overlaps(a: Rect, b: Rect, eps = 0): boolean {
@@ -60,6 +62,8 @@ export function stepBody(
 	solids: Solid[],
 	gravity: number,
 	settleSpeed: number,
+	/** Multiplies each surface's restitution (heavy objects bounce less). */
+	bounceScale = 1,
 ): ImpactInfo[] {
 	const impacts: ImpactInfo[] = [];
 
@@ -84,8 +88,8 @@ export function stepBody(
 		if (b.vx > 0) b.x = s.x - b.hw;
 		else if (b.vx < 0) b.x = s.x + s.w + b.hw;
 		else continue;
-		impacts.push({ speed: Math.abs(b.vx), solid: s, axis: "x" });
-		b.vx = -b.vx * s.bounce;
+		impacts.push({ speed: Math.abs(b.vx), solid: s, axis: "x", fromAbove: false });
+		b.vx = -b.vx * s.bounce * bounceScale;
 	}
 
 	// Y axis
@@ -94,20 +98,20 @@ export function stepBody(
 		if (!overlaps(bodyRect(b), s)) continue;
 		if (b.vy > 0) {
 			b.y = s.y - b.hh;
-			impacts.push({ speed: b.vy, solid: s, axis: "y" });
-			if (b.vy * s.bounce < settleSpeed) {
+			impacts.push({ speed: b.vy, solid: s, axis: "y", fromAbove: true });
+			if (b.vy * s.bounce * bounceScale < settleSpeed) {
 				b.vy = 0;
 				b.vx = 0;
 				b.grounded = true;
 				b.ground = s;
 			} else {
-				b.vy = -b.vy * s.bounce;
-				b.vx *= 0.75; // vinyl grabs a little on each bounce
+				b.vy = -b.vy * s.bounce * bounceScale;
+				b.vx *= 0.8; // vinyl grabs a little on each bounce
 			}
 		} else if (b.vy < 0) {
 			b.y = s.y + s.h + b.hh;
-			impacts.push({ speed: -b.vy, solid: s, axis: "y" });
-			b.vy = -b.vy * s.bounce;
+			impacts.push({ speed: -b.vy, solid: s, axis: "y", fromAbove: false });
+			b.vy = -b.vy * s.bounce * bounceScale;
 		}
 	}
 

@@ -1,6 +1,8 @@
 import kaplay from "kaplay";
 import { FONT, VIEW_HEIGHT, makePalette } from "./config";
+import { buildFloorCanvas, buildRoomCanvas } from "./castleArt";
 import { registerGameScene } from "./game";
+import { CASTLE_ART_TOP, CASTLE_BUTTRESSES, CASTLE_WINDOWS, CEIL_Y, FLOOR_Y, ROOM, WALL_L, WALL_R } from "./level1";
 
 const k = kaplay({
 	background: [6, 5, 9],
@@ -30,6 +32,14 @@ function makeVignette(): string {
 	return c.toDataURL();
 }
 k.loadSprite("vignette", makeVignette());
+
+// The castle interior is procedural vector art rendered once to canvases.
+const castleLayout = {
+	w: ROOM.w, h: ROOM.h, floorY: FLOOR_Y, ceilY: CEIL_Y, wallL: WALL_L, wallR: WALL_R,
+	top: CASTLE_ART_TOP, windows: CASTLE_WINDOWS, buttresses: CASTLE_BUTTRESSES, seed: 7,
+};
+k.loadSprite("castleRoom", buildRoomCanvas(castleLayout));
+k.loadSprite("castleFloor", buildFloorCanvas(castleLayout));
 
 const pal = makePalette(k);
 registerGameScene(k, pal);

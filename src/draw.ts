@@ -1,6 +1,6 @@
 import type { Color, KAPLAYCtx } from "kaplay";
 import type { Palette } from "./config";
-import { CEIL_Y, FLOOR_Y, HATCH, ROOM, WALL_L, WALL_R } from "./level1";
+import { CEIL_Y, FLOOR_Y, HATCH } from "./level1";
 import type { Rect } from "./physics";
 
 /**
@@ -12,38 +12,6 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 
 	function rect(x: number, y: number, w: number, h: number, color: Color, extra: object = {}) {
 		k.drawRect({ pos: v(x, y), width: w, height: h, color, ...extra });
-	}
-
-	function backWall() {
-		const stripe = 80;
-		for (let x = 0, i = 0; x < ROOM.w; x += stripe, i++) {
-			rect(x, 0, stripe, ROOM.h, i % 2 ? pal.redDark : pal.yellowDark);
-		}
-		// Puffy horizontal seams
-		for (let y = 120; y < FLOOR_Y; y += 140) {
-			k.drawRect({ pos: v(0, y), width: ROOM.w, height: 6, color: k.BLACK, opacity: 0.25 });
-		}
-		// Darken towards the ceiling
-		k.drawRect({
-			pos: v(0, 0), width: ROOM.w, height: 320,
-			gradient: [k.BLACK, k.rgb(0, 0, 0)], opacity: 0.35,
-		});
-	}
-
-	function windowArt(t: number) {
-		const x = 560, y = 160, w = 150, h = 210;
-		rect(x - 12, y - 12, w + 24, h + 24, pal.woodDark, { radius: [80, 80, 4, 4] });
-		rect(x, y, w, h, k.rgb(14, 18, 30), { radius: [70, 70, 2, 2] });
-		// Moon
-		k.drawCircle({ pos: v(x + 100, y + 60), radius: 22, color: pal.moon, opacity: 0.55 });
-		k.drawCircle({ pos: v(x + 110, y + 54), radius: 20, color: k.rgb(14, 18, 30) });
-		// Mullions
-		rect(x + w / 2 - 3, y, 6, h, pal.woodDark);
-		rect(x, y + h * 0.45, w, 6, pal.woodDark);
-		// Curtains, gently swaying
-		const sway = Math.sin(t * 0.7) * 4;
-		k.drawPolygon({ pts: [v(x - 20, y - 20), v(x + 30 + sway, y - 20), v(x + 10 + sway, y + h + 20), v(x - 20, y + h + 20)], color: pal.red });
-		k.drawPolygon({ pts: [v(x + w + 20, y - 20), v(x + w - 30 - sway, y - 20), v(x + w - 10 - sway, y + h + 20), v(x + w + 20, y + h + 20)], color: pal.red });
 	}
 
 	function portrait(px: number, py: number) {
@@ -89,32 +57,6 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		}
 	}
 
-	function sidePillars() {
-		for (const [x0, x1] of [[0, WALL_L], [WALL_R, ROOM.w]] as const) {
-			rect(x0, 0, x1 - x0, ROOM.h, pal.blueDark);
-			for (let y = CEIL_Y; y < FLOOR_Y; y += 60) {
-				rect(x0 + 4, y + 4, x1 - x0 - 8, 52, pal.blue, { radius: 18 });
-			}
-			// Turret cap
-			const cx = (x0 + x1) / 2;
-			k.drawPolygon({ pts: [v(x0 - 10, CEIL_Y + 10), v(x1 + 10, CEIL_Y + 10), v(cx, CEIL_Y - 70)], color: pal.yellowDark });
-		}
-	}
-
-	function ceiling() {
-		rect(0, 0, ROOM.w, CEIL_Y, pal.redDark);
-		for (let x = 30; x < ROOM.w; x += 60) {
-			k.drawCircle({ pos: v(x, CEIL_Y), radius: 30, color: pal.red, start: 0, end: 180 });
-		}
-	}
-
-	function floor() {
-		rect(0, FLOOR_Y, ROOM.w, ROOM.h - FLOOR_Y, pal.greenDark);
-		for (let x = 0; x < ROOM.w; x += 120) {
-			rect(x + 3, FLOOR_Y + 3, 114, 46, pal.green, { radius: 20 });
-		}
-	}
-
 	function shelf(s: Rect) {
 		rect(s.x, s.y, s.w, s.h, pal.wood);
 		rect(s.x, s.y + s.h, s.w, 4, pal.woodDark);
@@ -146,8 +88,8 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		rect(s.x, s.y + s.h - 36, s.w, 6, pal.woodDark);
 	}
 
-	function rockingHorse(t: number) {
-		const x = 760, y = FLOOR_Y;
+	function rockingHorse(t: number, sink = 0) {
+		const x = 760, y = FLOOR_Y + sink;
 		const rock = Math.sin(t * 0.6) * 0.06;
 		k.pushTransform();
 		k.pushTranslate(x, y - 6);
@@ -162,7 +104,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.popTransform();
 	}
 
-	return { backWall, windowArt, portrait, hatch, chandelier, sidePillars, ceiling, floor, shelf, bed, wardrobe, rockingHorse };
+	return { portrait, hatch, chandelier, shelf, bed, wardrobe, rockingHorse };
 }
 
 export function drawItem(k: KAPLAYCtx, pal: Palette, kind: string, x: number, y: number, w: number, h: number, opacity = 1) {

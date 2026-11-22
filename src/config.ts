@@ -12,6 +12,18 @@ export const PHYS = {
 	maxLaunch: 920,
 	/** Seconds for the charge bar to go from empty to full (it then swings back down). */
 	chargeSweep: 0.9,
+	/** A tap (shorter than this, in seconds) is a quick hop; holding this long starts a charge. */
+	holdToCharge: 0.2,
+	/** Speed of the quick hop. */
+	hopSpeed: 470,
+	/** A hop pressed in mid-air waits this long for you to touch a surface. */
+	hopBuffer: 0.3,
+	/** A charged launch pressed in mid-air waits this long for you to touch a surface. */
+	launchBuffer: 1.5,
+	/** You can still jump this long after leaving a surface (bouncy floors rarely let you rest). */
+	contactGrace: 0.08,
+	/** Hard floor landings shove you sideways by up to this much: the castle is uneven and chaotic. */
+	floorChaos: 90,
 	/** Seconds the bar stays at 100% before swinging back down. */
 	chargeHold: 0.35,
 	/** Below this impact speed a landing settles instead of bouncing again. */
