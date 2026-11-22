@@ -100,6 +100,7 @@ k.load((async () => {
 const pal = makePalette(k);
 registerGameScene(k, pal);
 
+const COVER = import.meta.env.DEV && new URLSearchParams(location.search).get("shot") === "cover";
 const GILT = k.rgb(236, 198, 120);
 const CANDLE = k.rgb(255, 176, 96);
 
@@ -238,6 +239,7 @@ k.scene("title", () => {
 			giltText("Hollybank Manor", W / 2, py + 96 * u, Math.min(60 * u, pw / 9), { opacity: fade });
 			ui.ornament(W / 2, py + 140 * u, Math.min(pw - 80 * u, 360 * u), u, fade);
 			k.drawText({ text: "a horror game inside a bouncy Victorian dollhouse", pos: k.vec2(W / 2, py + 168 * u), size: 16 * u, width: pw - 40 * u, align: "center", color: pal.textDim, anchor: "center", font: FONT, opacity: fade });
+			if (COVER) return;
 			if (showControls) {
 				const cw = Math.min(W - 32 * u, 540 * u), chh = 200 * u, cx = W / 2 - cw / 2, cy = H * 0.5;
 				ui.panel(cx, cy, cw, chh, 0.95);
@@ -289,4 +291,7 @@ k.scene("escaped", ({ time }: { time: number }) => {
 	k.onKeyPress(["space", "enter", "r"], again);
 });
 
-k.go("title");
+const SHOT = import.meta.env.DEV ? new URLSearchParams(location.search).get("shot") : null;
+if (SHOT === "escaped") k.go("escaped", { time: 47 });
+else if (SHOT && SHOT !== "title" && SHOT !== "cover") k.go("game");
+else k.go("title");

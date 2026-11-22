@@ -351,6 +351,32 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			};
 		}
 
+		// ---------- Photo mode (dev only): ?shot=<name> stages a scene for store screenshots ----------
+		let hideHud = false, freezePlayer = false, freezeGhost = false;
+		const shot = import.meta.env.DEV ? new URLSearchParams(location.search).get("shot") : null;
+		if (shot) {
+			const calm = () => { flickerT = 1e9; blackout = 0; dim = 0; };
+			const place = (x: number, feetY: number, vy = 0, face = 1) => {
+				player.x = x; player.y = feetY - player.hh; player.vx = 0; player.vy = vy;
+				player.grounded = vy === 0 && feetY === FLOOR_Y; player.ground = null; facing = face;
+			};
+			const showGhost = (dx: number, dy: number, scale = 1, flip = 1) => {
+				ghost.state = "hold"; ghost.t = 1e9; ghost.a = 1; ghost.scale = scale; ghost.flip = flip;
+				ghost.x = player.x + dx; ghost.y = player.y + dy; freezeGhost = true;
+			};
+			calm();
+			hideHud = !shot.endsWith("-hud");
+			const name = shot.replace(/-hud$/, "");
+			if (name === "nursery") { place(1160, FLOOR_Y, 0, -1); }
+			if (name === "leap") { place(905, 194 + 26 + player.hh * 2, -150); freezePlayer = true; floorWave.hit(905, 900); }
+			if (name === "spring") { place(700, FLOOR_Y - 150, -500); freezePlayer = true; floorWave.hit(700, 1100); }
+			if (name === "fall") { place(560, FLOOR_Y - 260, 260, -1); freezePlayer = true; }
+			if (name === "monster") { place(1130, FLOOR_Y); anger = 0.75; showGhost(-330, -40); }
+			if (name === "watched") { place(1400, 419); anger = 0.6; showGhost(-300, -70, 1, -1); }
+			if (name === "lunge") { place(1120, FLOOR_Y, 0, -1); anger = 0.85; showGhost(-150, -40, 2.1); lungeDark = 0.3; monsterPulse = 1; }
+			if (name === "shelf") { place(1712, 322, 0, 1); }
+		}
+
 		// ---------- Input ----------
 		k.onKeyPress(["w", "up", "space"], jumpPressed);
 		k.onKeyRelease(["s", "down"], () => {
@@ -373,6 +399,13 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			const dt = Math.min(k.dt(), 1 / 30);
 			t += dt;
 			if (paused) return;
+			if (freezePlayer) {
+				floorWave.update(dt);
+				doll.update(dt, { grounded: false, walking: false, vx: player.vx, vy: player.vy, sink: 0, carrying: !!carrying, facing });
+				if (!freezeGhost) updateGhost(dt);
+				updateCamera(dt);
+				return;
+			}
 			elapsed += dt;
 			if (toastT > 0) toastT -= dt;
 			lockedToastCooldown = Math.max(0, lockedToastCooldown - dt);
@@ -485,7 +518,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				grounded: player.grounded, walking: player.grounded && dir !== 0 && sink === 0,
 				vx: player.vx, vy: player.vy, sink, carrying: !!carrying, facing,
 			});
-			updateGhost(dt);
+			if (!freezeGhost) updateGhost(dt);
 
 			// Random light flicker / short blackouts
 			flickerT -= dt;
@@ -727,7 +760,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					for (const e of eyes) glow(k, e, 8 * u, green, 0.9);
 				}
 
-				drawHud(W, H, u);
+				if (!hideHud) drawHud(W, H, u);
 				if (phase === "sliding") ui.shade(0, 0, W, H, Math.min(1, slideT / 1.4));
 				if (lungeDark > 0) ui.shade(0, 0, W, H, lungeDark);
 				if (paused) drawMenu(W, H, u);
