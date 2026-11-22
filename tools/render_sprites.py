@@ -255,6 +255,14 @@ def render_sprite(cfg, defaults, out_dir: pathlib.Path):
     scene.render.resolution_x = max(4, round(game_w * ppu))
     scene.render.resolution_y = max(4, round(game_h * ppu))
 
+    # Joint positions (for cut-out rigs), in game units from the sprite's top-left.
+    pivots = {}
+    for o in parts.get("_pivots", []):
+        q = np.array(rot.transposed()) @ np.array(o.matrix_world.translation)
+        gx = ((q[0] - (x0 + x1) / 2) / (ex * margin) + 0.5) * game_w
+        gy = (0.5 - (q[1] - (y0 + y1) / 2) / (ey * margin)) * game_h
+        pivots[o.name.split(":", 1)[1]] = [round(float(gx), 1), round(float(gy), 1)]
+
     # One render per pass; every pass shares this camera so the layers line up.
     passes = cfg.get("passes") or {cfg["name"]: None}
     results = {}
@@ -266,6 +274,8 @@ def render_sprite(cfg, defaults, out_dir: pathlib.Path):
         render_still(out, grade={})
         results[name] = {"w": round(float(game_w), 1), "h": round(float(game_h), 1), "source": cfg.get("model") or cfg["build"],
                          **collision_shape(out, ppu, cfg.get("cell", 4.0))}
+        if pivots:
+            results[name]["pivots"] = pivots
     return results
 
 
@@ -317,6 +327,8 @@ def main():
         if "bbox" in m:
             rects = ", ".join("[" + ", ".join(str(v) for v in r) + "]" for r in m["rects"])
             extra += f', bbox: [{", ".join(str(v) for v in m["bbox"])}], rects: [{rects}]'
+        if "pivots" in m:
+            extra += ", pivots: { " + ", ".join(f"{k}: [{v[0]}, {v[1]}]" for k, v in m["pivots"].items()) + " }"
         lines.append(f'\t{name}: {{ file: "{rel}/{name}.png", w: {m["w"]}, h: {m["h"]}{extra} }},')
     lines.append("} as const;")
     lines.append("")

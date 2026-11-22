@@ -1,6 +1,7 @@
 import type { KAPLAYCtx, Vec2 } from "kaplay";
 import { FONT, PHYS, VIEW_HEIGHT, type Palette } from "./config";
-import { drawItem, drawPlayer, glow, makeRoomArt } from "./draw";
+import { makeDoll } from "./doll";
+import { drawItem, glow, makeRoomArt } from "./draw";
 import {
 	CHANDELIER, FIXED, FLOOR_Y, FURNITURE, HATCH, ITEMS, PLAYER_SIZE, PLAYER_START, ROOM, ROOM_NUMBER, ROOM_TITLE,
 	type ItemDef,
@@ -17,6 +18,9 @@ interface Item {
 	carried: boolean;
 	/** False until released into the room (the key starts on the chandelier). */
 	active: boolean;
+	/** Tumbling while airborne (radians), and a squash on landing (decays). */
+	rot: number;
+	squash: number;
 }
 
 type Phase = "play" | "sliding";
@@ -106,12 +110,15 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		// Threat teasers
 		let anger = 0;
 		let monsterPulse = 0;
-		let monsterX = player.x;
+		/** The monster: fades in and out somewhere in the darkness beyond the vignette's light. */
+		const ghost = { a: 0, state: "hidden" as "hidden" | "in" | "hold" | "out", t: 6 + Math.random() * 6, x: 0, y: 0, flip: 1 };
+		const doll = makeDoll(k);
 		let flickerT = 6 + Math.random() * 6;
 		let blackout = 0;
 		let dim = 0;
 		let fxOn = true; // dev toggle: hide vignette/darkness to inspect the art
 		let showHitboxes = false; // dev toggle: outline every solid (debug only)
+		let devZoom = 1; // dev toggle: zoom the camera in to inspect animation
 
 		const floorWave = makeFloorWave(ROOM.w, 12);
 
@@ -119,6 +126,8 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			def,
 			carried: false,
 			active: !def.hidden,
+			rot: 0,
+			squash: 0,
 			b: { x: def.x, y: def.restOn - def.h / 2, hw: def.w / 2, hh: def.h / 2, vx: 0, vy: 0, grounded: !def.hidden, ground: null },
 		}));
 		const keyItem = items.find((i) => i.def.id === "key")!;
@@ -162,6 +171,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			player.vy = Math.min(player.vy, -s);
 			if (player.grounded) player.vx = walkDir() * PHYS.walkSpeed * carryFactor();
 			jumps++;
+			doll.jump(0.3);
 			afterJump(0.2);
 		}
 
@@ -169,6 +179,8 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			player.vy = -PHYS.jumpSpeed * carryFactor();
 			airJumpsLeft--;
 			doubleJumps++;
+			doll.jump(0.5);
+			doll.twirl();
 			afterJump(0.35);
 		}
 
@@ -178,6 +190,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			player.vx = walkDir() * PHYS.walkSpeed * carryFactor();
 			floorWave.hit(player.x, -s * 0.8); // the dent snaps back up
 			springs++;
+			doll.jump(1);
 			afterJump(0.4 + sink * 0.6);
 			sink = 0;
 		}
@@ -258,6 +271,13 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			const sub = dt / 2;
 			for (const it of items) {
 				if (!it.active || it.carried) continue;
+				// Tumble while flying; settle back upright on landing.
+				it.squash = Math.max(0, it.squash - dt * 4);
+				if (!it.b.grounded) it.rot += it.b.vx * dt * (it.def.kind === "key" ? 0.06 : 0.012);
+				else {
+					const target = Math.round(it.rot / (Math.PI * 2)) * Math.PI * 2;
+					it.rot += (target - it.rot) * Math.min(1, dt * 12);
+				}
 				for (let s = 0; s < 2; s++) {
 					const wasMoving = !it.b.grounded;
 					const impacts = stepBody(it.b, sub, solidsNow(it), PHYS.gravity, PHYS.settleSpeed, it.def.bounceScale);
@@ -268,6 +288,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 							if (!it.b.grounded && im.speed > 200) it.b.vx += (Math.random() * 2 - 1) * 60;
 						}
 					}
+						for (const im of impacts) if (im.fromAbove && im.speed > 120) it.squash = Math.max(it.squash, Math.min(1, im.speed / 600));
 					if (it.def.kind !== "key" && wasMoving && it.b.grounded && overlaps(itemRect(it), bodyRect(player))) {
 						player.y = it.b.y - it.b.hh - player.hh;
 						player.grounded = true;
@@ -310,9 +331,10 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		// Dev-only handle for poking at the level from the browser console (stripped from builds).
 		if (import.meta.env.DEV) {
 			(window as any).__etc = {
-				player, items, toggleCarry, floorWave,
+				player, items, toggleCarry, floorWave, ghost,
 				fx(on: boolean) { fxOn = on; },
 				hitboxes(on: boolean) { showHitboxes = on; },
+				zoom(z: number) { devZoom = z; },
 				teleport(x: number, y: number) { player.x = x; player.y = y; player.vx = player.vy = 0; player.grounded = false; player.ground = null; },
 				jump: jumpPressed,
 				state: () => ({ x: player.x, y: player.y, vx: player.vx, vy: player.vy, grounded: player.grounded, ground: player.ground?.id, airJumpsLeft, sink, carrying: carrying?.def.id, keyOnChandelier, phase, elapsed }),
@@ -404,6 +426,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				const impacts = stepBody(player, sub, solidsNow(), PHYS.gravity, PHYS.settleSpeed, bounceScale);
 				for (const im of impacts) {
 					if (im.speed > 600) k.shake(Math.min(6, im.speed / 180));
+					if (im.fromAbove && im.speed > 150) doll.land(im.speed);
 					if (!im.fromAbove) continue;
 					lastContact = elapsed;
 					airJumpsLeft = PHYS.airJumps;
@@ -448,7 +471,11 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				}
 			}
 
-			monsterX = k.lerp(monsterX, player.x, Math.min(1, dt * 0.6));
+			doll.update(dt, {
+				grounded: player.grounded, walking: player.grounded && dir !== 0 && sink === 0,
+				vx: player.vx, vy: player.vy, sink, carrying: !!carrying, facing,
+			});
+			updateGhost(dt);
 
 			// Random light flicker / short blackouts
 			flickerT -= dt;
@@ -462,18 +489,55 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			updateCamera(dt);
 		});
 
+		// ---------- The monster's apparitions ----------
+		function updateGhost(dt: number) {
+			const lit = Math.hypot(ghost.x - player.x, ghost.y - player.y) < 200;
+			switch (ghost.state) {
+				case "hidden":
+					ghost.t -= dt;
+					if (ghost.t <= 0) {
+						// Appear somewhere out in the dark, just beyond the light around the doll.
+						const ang = Math.random() * Math.PI * 2, dist = 290 + Math.random() * 60;
+						ghost.x = player.x + Math.cos(ang) * dist;
+						ghost.y = player.y - 30 + Math.sin(ang) * dist * 0.75;
+						ghost.flip = Math.random() < 0.5 ? -1 : 1;
+						ghost.state = "in";
+					}
+					break;
+				case "in":
+					ghost.a = Math.min(1, ghost.a + dt / 1.8);
+					if (ghost.a >= 1) { ghost.state = "hold"; ghost.t = 1.5 + Math.random() * 2.5 + anger * 2; }
+					break;
+				case "hold":
+					ghost.t -= dt;
+					// Drifts closer while you're not looking...
+					ghost.x += Math.sign(player.x - ghost.x) * 6 * dt;
+					if (ghost.t <= 0) ghost.state = "out";
+					break;
+				case "out":
+					ghost.a = Math.max(0, ghost.a - dt / 1.4);
+					if (ghost.a <= 0) { ghost.state = "hidden"; ghost.t = (7 + Math.random() * 9) * (1 - 0.5 * anger); }
+					break;
+			}
+			// It shrinks from the light: walk towards it and it vanishes quickly.
+			if (lit && ghost.state !== "hidden") {
+				ghost.state = "out";
+				ghost.a = Math.max(0, ghost.a - dt / 0.35);
+			}
+		}
+
 		// ---------- Camera ----------
 		let camPos = v(player.x, player.y);
-		function camScale() { return k.height() / VIEW_HEIGHT; }
+		function camScale() { return (k.height() / VIEW_HEIGHT) * devZoom; }
 		function updateCamera(dt: number) {
 			const s = camScale();
 			const vw = k.width() / s;
 			const vh = VIEW_HEIGHT;
 			const lead = carrying ? pointerWorld().sub(center()).scale(0.2) : v(player.vx * 0.25, 0);
 			let tx = player.x + lead.x;
-			let ty = player.y - 40 + lead.y;
+			let ty = player.y - (devZoom > 1 ? 10 : 40) + lead.y;
 			tx = vw >= ROOM.w ? ROOM.w / 2 : k.clamp(tx, vw / 2, ROOM.w - vw / 2);
-			ty = k.clamp(ty, vh / 2 - 70, ROOM.h + 60 - vh / 2);
+			if (devZoom === 1) ty = k.clamp(ty, vh / 2 - 70, ROOM.h + 60 - vh / 2);
 			camPos = camPos.lerp(v(tx, ty), Math.min(1, dt * 5));
 			k.setCamScale(s);
 			k.setCamPos(camPos);
@@ -485,6 +549,38 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		const sinkAt = (b: Body) => (b.grounded && b.ground?.id === "floor") || (!b.grounded && b.y + b.hh >= FLOOR_Y - 1)
 			? floorWave.at(b.x) : 0;
 
+		/**
+		 * The floor photo as one continuous mesh that bends like rubber: each column of vertices is
+		 * pushed down by the wave, the walking surface most and the far edge least, so the texture
+		 * stretches smoothly into the dent instead of being cut into slices.
+		 */
+		const FLOOR_ROWS = [[0, 0], [12, 0.35], [66, 1], [102, 0.85], [120, 0.5]] as const; // [px row in the 120-unit image, weight]
+		function drawFloor() {
+			const fl = SPRITES.floor;
+			const data = k.getSprite(spriteKey("floor"))?.data;
+			if (!data) return;
+			const q = data.frames[0];
+			const step = floorWave.strip;
+			const cols = Math.ceil(fl.w / step) + 1;
+			const pts: Vec2[] = [], uv: Vec2[] = [], indices: number[] = [];
+			for (let c = 0; c < cols; c++) {
+				const x = Math.min(fl.w, c * step);
+				const dip = floorWave.d[Math.min(floorWave.n - 1, c)];
+				for (const [row, weight] of FLOOR_ROWS) {
+					pts.push(v(fl.x + x, fl.y + row + dip * weight));
+					uv.push(v(q.x + (x / fl.w) * q.w, q.y + (row / fl.h) * q.h));
+				}
+			}
+			const R = FLOOR_ROWS.length;
+			for (let c = 0; c < cols - 1; c++) {
+				for (let r = 0; r < R - 1; r++) {
+					const i = c * R + r, j = (c + 1) * R + r;
+					indices.push(i, j, i + 1, i + 1, j, j + 1);
+				}
+			}
+			k.drawPolygon({ pts, uv, tex: data.tex, indices, triangulate: false });
+		}
+
 		// ---------- World drawing ----------
 		k.add([k.z(0), {
 			id: "worldArt",
@@ -492,22 +588,9 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				// The room shell, then the rippling floor, then every object in front of the floor.
 				const room = SPRITES.room;
 				k.drawSprite({ sprite: spriteKey("room"), pos: v(room.x, room.y), width: room.w, height: room.h });
-				const fl = SPRITES.floor;
-				const w = floorWave.strip;
-				for (let i = 0; i < floorWave.n - 1; i++) {
-					const x = i * w;
-					if (x >= fl.w) break;
-					const sw = Math.min(w, fl.w - x);
-					k.drawSprite({
-						sprite: spriteKey("floor"),
-						pos: v(fl.x + x, fl.y + floorWave.d[i]),
-						width: sw + 0.6,
-						height: fl.h,
-						quad: k.quad(x / fl.w, 0, sw / fl.w, 1),
-					});
-				}
+				drawFloor();
 				art.portrait(player.x);
-				art.hatch(t, phase === "sliding", phase !== "sliding");
+				art.hatch(t, phase === "sliding", phase === "sliding" ? Math.min(1, slideT / 0.9) : 0);
 				art.chandelier(t, swing, keyOnChandelier);
 				for (const f of FURNITURE) art.furniture(f);
 				art.rockingHorse(t, floorWave.at(760));
@@ -515,7 +598,15 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				for (const it of items) {
 					if (!it.active || it.carried) continue;
 					const r = itemRect(it);
-					drawItem(k, it.def.sprite, { ...r, y: r.y + sinkAt(it.b) });
+					const bottom = v(r.x + r.w / 2, r.y + r.h + sinkAt(it.b));
+					// Tumbling in flight, squashing on landing (around its centre / its base)
+					k.pushTransform();
+					k.pushTranslate(bottom.x, bottom.y - r.h / 2);
+					if (it.rot) k.pushRotate(k.rad2deg(it.rot));
+					k.pushTranslate(0, r.h / 2);
+					if (it.squash) k.pushScale(1 + 0.12 * it.squash, 1 - 0.16 * it.squash);
+					drawItem(k, it.def.sprite, { x: -r.w / 2, y: -r.h, w: r.w, h: r.h });
+					k.popTransform();
 				}
 
 				if (import.meta.env.DEV && showHitboxes) {
@@ -533,11 +624,13 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				// Player (squashes as it sinks into the vinyl)
 				const py = player.y + sinkAt(player);
 				const slideFade = phase === "sliding" ? Math.max(0, 1 - slideT * 1.2) : 1;
-				if (slideFade > 0) drawPlayer(k, player.x, py + player.hh, player.hw, player.vy + sink * 700, facing, t);
+				if (slideFade > 0) doll.draw(player.x, py + player.hh, facing, slideFade);
 				if (carrying) {
+					// Held up over her head, bobbing with her arms
 					const s = carrying.def.kind === "key" ? 1 : 0.7;
 					const cw = carrying.def.w * s, ch = carrying.def.h * s;
-					drawItem(k, carrying.def.sprite, { x: player.x - cw / 2, y: py - player.hh - ch - 4, w: cw, h: ch });
+					const bob = Math.sin(t * 2.3) * 1.5 + (player.grounded ? 0 : -4);
+					drawItem(k, carrying.def.sprite, { x: player.x - cw / 2, y: py - player.hh - ch - 2 + bob, w: cw, h: ch });
 				}
 				// Double jump ready: a faint glimmer above the head while airborne
 				if (!player.grounded && airJumpsLeft > 0 && phase === "play") {
@@ -563,21 +656,24 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					if (fy < H) k.drawSprite({ sprite: "floorShade", pos: v(0, fy), width: W, height: Math.max(H - fy, 90 * u) });
 				}
 
-				// Monster: a pale face (a photo-textured render) glowing up through the dark beneath the floor.
-				const ms = k.toScreen(v(monsterX, FLOOR_Y + 70));
+				// Monster: a pale marble face (a photo-textured render) that fades in somewhere in the darkness.
 				const m = SPRITES.monster;
-				const presence = 0.12 + anger * 0.4 + monsterPulse * 0.25;
-				const mw = m.w * u * 1.1, mh = m.h * u * 1.1;
 				const green = k.rgb(150, 235, 180);
-				k.drawSprite({ sprite: "monster_glow", pos: ms, width: mw * 1.6, height: mh * 1.6, anchor: "center", color: green, opacity: presence * 0.9 });
-				k.drawSprite({ sprite: spriteKey("monster"), pos: ms, width: mw, height: mh, anchor: "center", color: green, opacity: presence * 0.35 });
-				const eyeOpen = Math.min(1, anger * 1.6 + monsterPulse * 0.6);
-				const eyes = [ms.add(v(-0.13 * mw, -0.22 * mh)), ms.add(v(0.1 * mw, -0.22 * mh))];
-				if (eyeOpen > 0.15) for (const e of eyes) glow(k, e, 14 * u * eyeOpen, green, 0.3 + 0.6 * eyeOpen);
+				const gs = k.toScreen(v(ghost.x, ghost.y));
+				const breathe = 1 + 0.035 * Math.sin(t * 1.7);
+				const mw = m.w * u * 1.05 * breathe, mh = m.h * u * 1.05 * breathe;
+				const jitter = anger > 0.5 ? Math.sin(t * 31) * 1.2 * u : 0;
+				const strength = (0.45 + 0.5 * Math.min(1, anger + 0.2) + monsterPulse * 0.2) * ghost.a;
+				const eyes = [gs.add(v(-0.12 * mw * ghost.flip, -0.22 * mh)), gs.add(v(0.11 * mw * ghost.flip, -0.22 * mh))];
+				if (ghost.a > 0.01) {
+					k.drawSprite({ sprite: "monster_glow", pos: gs.add(v(jitter, 0)), width: mw * 1.6, height: mh * 1.6, anchor: "center", color: green, opacity: strength * 0.75, flipX: ghost.flip < 0 });
+					k.drawSprite({ sprite: spriteKey("monster"), pos: gs.add(v(jitter, 0)), width: mw, height: mh, anchor: "center", color: green, opacity: strength * 0.32, flipX: ghost.flip < 0 });
+					for (const e of eyes) glow(k, e, 13 * u, green, strength * (0.5 + 0.5 * Math.sin(t * 3) ** 2));
+				}
 
 				if (blackout > 0) {
 					ui.shade(0, 0, W, H, 0.94);
-					// ...but the eyes still glow.
+					// ...but its eyes still glow, wherever it is.
 					for (const e of eyes) glow(k, e, 14 * u, green, 0.9);
 				}
 
@@ -621,11 +717,12 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			k.drawText({ text: hint, pos: v(W / 2, H - m - 22 * u), size: 15 * u, width: hw - 24 * u, align: "center", color: pal.text, font: FONT, anchor: "center" });
 
 			if (toastT > 0) {
-				k.drawText({ text: toast, pos: v(W / 2, H - m - 64 * u), size: 15 * u, color: pal.yellow, font: FONT, anchor: "center", opacity: Math.min(1, toastT * 2) });
+				const rise = Math.min(1, (2.4 - Math.min(2.4, toastT)) * 5);
+				k.drawText({ text: toast, pos: v(W / 2, H - m - (52 + 12 * rise) * u), size: 15 * u, color: pal.yellow, font: FONT, anchor: "center", opacity: Math.min(1, toastT * 2, rise) });
 			}
 
-			if (anger > 0.6) {
-				k.drawText({ text: "Something beneath the floorboards stirs...", pos: v(W / 2, m + 8 * u), size: 15 * u, color: pal.monster, font: FONT, anchor: "top", opacity: (anger - 0.6) * 3 });
+			if (anger > 0.4 && ghost.a > 0.5) {
+				k.drawText({ text: "Something watches from the dark...", pos: v(W / 2, m + 8 * u), size: 15 * u, color: pal.monster, font: FONT, anchor: "top", opacity: Math.min(1, (anger - 0.4) * 3) * ghost.a });
 			}
 		}
 

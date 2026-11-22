@@ -23,6 +23,7 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/level1.ts` - The Nursery layout and puzzle data
 - `src/sprites.ts` - hitboxes from each rendered sprite's visible pixels
 - `src/ui.ts` - UI built from photo materials (dark wood, brass)
+- `src/doll.ts` - the player: a Gothic porcelain doll animated as a cut-out rig (each body part is its own render layer, rotated about joints exported by the render script)
 - `src/draw.ts` - draws the rendered images (furniture, portrait, hatch, chandelier, player) and image-based light effects
 - `src/config.ts` - tuning values and the colour palette
 - `src/sprites.generated.ts` - sizes and visible-pixel hitboxes of every rendered image (generated)
@@ -34,7 +35,7 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 pnpm run dev
 ```
 
-starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player; `__etc.fx(false)` hides the vignette to inspect the art and `__etc.hitboxes(true)` outlines every hitbox.
+starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player; `__etc.fx(false)` hides the vignette to inspect the art and `__etc.hitboxes(true)` outlines every hitbox and `__etc.zoom(4)` zooms the camera in on the doll.
 
 ```sh
 pnpm run check

@@ -3,7 +3,7 @@
 	"pixelsPerUnit": 3,
 	"tiltDegrees": 6,
 	"outDir": "public/sprites/nursery",
-	"textures": ["brown_leather", "ceiling_interior", "curly_teddy_natural", "dark_wood", "leather_red_02", "leather_white", "metal_plate", "painted_plaster_wall", "rough_linen", "rusty_metal", "white_planks_clean"],
+	"textures": ["brown_leather", "ceiling_interior", "crepe_satin", "curly_teddy_natural", "dark_wood", "leather_red_02", "leather_white", "metal_plate", "painted_plaster_wall", "rough_linen", "rusty_metal", "velour_velvet", "white_planks_clean"],
 	"gameTextures": ["herringbone_parquet", "dark_wood", "metal_plate"],
 	"skyPhotos": ["moonlit_golf"],
 	"images": [{"name": "honeysuckle", "url": "https://ids.si.edu/ids/deliveryService?id=CHSDM-1980-73-1MattFlynn&max=3000", "credit": "May Morris for Morris & Co., Honeysuckle sidewall (1883), Cooper Hewitt, Smithsonian Design Museum, CC0"}],
@@ -24,8 +24,8 @@
 		{"name": "key", "build": "key", "yaw": 0, "tilt": 0, "fit": "width", "size": 36},
 		{"name": "rocking_horse", "build": "rocking_horse", "yaw": 15, "fit": "width", "size": 150},
 		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "width", "size": 112, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
-		{"name": "player", "build": "child", "yaw": 25, "tilt": 4, "fit": "height", "size": 76, "passes": {"player": ["body", "eyes"], "player_blink": ["body", "lids"]}},
 		{"name": "shelf", "build": "shelf", "yaw": 0, "tilt": 6, "fit": "width", "size": 190},
-		{"name": "monster", "model": "marble_bust_01", "yaw": 0, "tilt": -10, "fit": "height", "size": 170}
+		{"name": "monster", "model": "marble_bust_01", "yaw": 0, "tilt": -10, "fit": "height", "size": 170},
+		{"name": "doll", "build": "gothic_doll", "yaw": 32, "tilt": 4, "fit": "height", "size": 78, "passes": {"doll": ["hair", "leg_back", "leg_front", "skirt", "torso", "arm_back", "arm_front", "head", "eyes"], "doll_head": ["head", "eyes"], "doll_head_blink": ["head", "lids"], "doll_hair": ["hair"], "doll_leg_back": ["leg_back"], "doll_leg_front": ["leg_front"], "doll_skirt": ["skirt"], "doll_torso": ["torso"], "doll_arm_back": ["arm_back"], "doll_arm_front": ["arm_front"]}}
 	]
 }

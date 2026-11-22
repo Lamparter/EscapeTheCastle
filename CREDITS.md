@@ -14,7 +14,7 @@ All from [Poly Haven](https://polyhaven.com), released under CC0 (public domain)
 - [Fancy Picture Frame 02](https://polyhaven.com/a/fancy_picture_frame_02) by Rob Tuytel and Rico Cilliers (the portrait's frame)
 - [Marble Bust 01](https://polyhaven.com/a/marble_bust_01) by Rico Cilliers (re-rendered as the portrait's sitter)
 
-The room, player, key, rocking horse, slide hatch and wall shelf are modelled procedurally for this game (`tools/procedural.py`) and textured with the photo textures below.
+The room, the Gothic doll (player), key, rocking horse, slide hatch and wall shelf are modelled procedurally for this game (`tools/procedural.py`) and textured with the photo textures below.
 
 ## Images
 
@@ -37,6 +37,8 @@ All from [Poly Haven](https://polyhaven.com) (CC0). They texture the rendered ro
 - [Rusty Metal](https://polyhaven.com/a/rusty_metal) by Rob Tuytel
 - [Ceiling Interior](https://polyhaven.com/a/ceiling_interior) by Dimitrios Savva
 - [White Planks Clean](https://polyhaven.com/a/white_planks_clean) by Rob Tuytel
+- [Velour Velvet](https://polyhaven.com/a/velour_velvet) by colormass, Rico Cilliers
+- [Crepe Satin](https://polyhaven.com/a/crepe_satin) by colormass, Rico Cilliers
 
 ## Engine
 

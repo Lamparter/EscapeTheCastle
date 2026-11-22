@@ -90,8 +90,8 @@ export const KEY_HANG = { dx: 0, dy: 14 };
 export const PORTRAIT = { x: 1086, y: 186 };
 export const ROCKING_HORSE = { x: 760 };
 
-/** Player body: the tight box around the player sprite's visible pixels. */
-export const PLAYER_SIZE = { hw: bboxOf("player").w / 2, hh: bboxOf("player").h / 2 };
+/** Player body: the tight box around the doll's visible pixels (all her parts, at rest). */
+export const PLAYER_SIZE = { hw: bboxOf("doll").w / 2, hh: bboxOf("doll").h / 2 };
 export const PLAYER_START = { x: 610, y: FLOOR_Y - PLAYER_SIZE.hh };
 
 export const ROOM_TITLE = "The Nursery";

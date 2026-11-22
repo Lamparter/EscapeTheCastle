@@ -35,12 +35,20 @@ export function makeRoomArt(k: KAPLAYCtx) {
 	/** World rects of the hatch's visible pixels (frame and opening). */
 	const hatchRects = (): Rect[] => spriteRects("hatch", hatchTopLeft().x, hatchTopLeft().y);
 
-	function hatch(t: number, open: boolean, locked: boolean) {
+	/** lockFall: 0 = chained shut; 0..1 = the chains and padlock dropping away after unlocking. */
+	function hatch(t: number, open: boolean, lockFall: number) {
 		const s = SPRITES.hatch, p = hatchTopLeft();
 		k.drawSprite({ sprite: spriteKey("hatch"), pos: p, width: s.w, height: s.h });
 		// Faint draught of moonlight from the slide beyond
 		glow(k, v(HATCH.cx, HATCH.bottom - s.h * 0.45), s.w * 0.45, moon, 0.1 + 0.05 * Math.sin(t * 2) + (open ? 0.25 : 0));
-		if (locked) k.drawSprite({ sprite: spriteKey("hatch_lock"), pos: p, width: s.w, height: s.h });
+		if (lockFall < 1) {
+			const drop = 160 * lockFall * lockFall;
+			k.pushTransform();
+			k.pushTranslate(HATCH.cx, p.y + s.h * 0.6 + drop);
+			k.pushRotate(lockFall * 35);
+			k.drawSprite({ sprite: spriteKey("hatch_lock"), pos: v(-s.w / 2, -s.h * 0.6), width: s.w, height: s.h, opacity: 1 - lockFall });
+			k.popTransform();
+		}
 	}
 
 	const swingAngle = (t: number, swing: number) => Math.sin(t * 0.9) * 0.05 + swing;
@@ -115,23 +123,4 @@ export function drawItem(k: KAPLAYCtx, sprite: SpriteName, box: Rect, opacity = 
 	const s = SPRITES[sprite];
 	const o = spriteOrigin(sprite, box);
 	k.drawSprite({ sprite: spriteKey(sprite), pos: k.vec2(o.x, o.y), width: s.w * o.scale, height: s.h * o.scale, opacity, color });
-}
-
-/** The player: a porcelain-doll child in a nightgown. Squashes and stretches with vertical speed. */
-export function drawPlayer(k: KAPLAYCtx, x: number, feetY: number, hw: number, vy: number, facing: number, t: number) {
-	const s = SPRITES.player;
-	const flip = facing < 0;
-	const b = bboxOf("player", flip);
-	const stretch = Math.max(-0.25, Math.min(0.25, -vy / 3000));
-	const blink = (t % 4) < 0.12;
-	k.pushTransform();
-	k.pushTranslate(x, feetY);
-	k.pushScale(1 - stretch * 0.7, 1 + stretch);
-	// Sprite placed so its visible bbox is centred on x with its bottom on the feet.
-	k.drawSprite({
-		sprite: spriteKey(blink ? "player_blink" : "player"),
-		pos: k.vec2(-hw - b.x, -(b.y + b.h)),
-		width: s.w, height: s.h, flipX: flip,
-	});
-	k.popTransform();
 }
