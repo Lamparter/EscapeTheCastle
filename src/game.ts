@@ -117,7 +117,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		/** Fade-to-black after the monster lunges: rises during the lunge, holds, then lifts. */
 		let lungeDark = 0, lungeHold = 0;
 		const doll = makeDoll(k);
-		let flickerT = 6 + Math.random() * 6;
+		let flickerT = 2 + Math.random() * 3;
 		let blackout = 0;
 		let dim = 0;
 		let fxOn = true; // dev toggle: hide vignette/darkness to inspect the art
@@ -156,7 +156,10 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		const walkDir = () => (k.isKeyDown(["d", "right"]) ? 1 : 0) - (k.isKeyDown(["a", "left"]) ? 1 : 0);
 		const digging = () => k.isKeyDown(["s", "down"]);
 		const onFloor = () => player.grounded && player.ground?.id === "floor";
-		const touching = () => player.grounded || elapsed - lastContact <= PHYS.contactGrace;
+		/** On a surface, just left one, or still rising from a bounce off one: a jump here is a ground
+		 * jump, so the air jump stays available (the floor keeps you bouncing for seconds). */
+		const touching = () => player.grounded || elapsed - lastContact <= PHYS.contactGrace
+			|| (player.vy < 0 && elapsed - lastContact <= PHYS.bounceGrace);
 
 		// ---------- Jumping ----------
 		function afterJump(strength: number) {
@@ -180,7 +183,10 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		}
 
 		function airJump() {
-			player.vy = -PHYS.jumpSpeed * carryFactor();
+			// Always adds one jump's worth of height: while still rising fast (after a spring) it adds to
+			// the climb instead of replacing it with a slower one.
+			const s = PHYS.jumpSpeed * carryFactor();
+			player.vy = player.vy < 0 ? -Math.hypot(player.vy, s) : -s;
 			airJumpsLeft--;
 			doubleJumps++;
 			doll.jump(0.5);
@@ -427,7 +433,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			const sub = dt / PHYS.substeps;
 			const bounceScale = digging() ? PHYS.digInBounce : 1;
 			for (let i = 0; i < PHYS.substeps; i++) {
-				const impacts = stepBody(player, sub, solidsNow(), PHYS.gravity, PHYS.settleSpeed, bounceScale, PHYS.stepUp);
+				const impacts = stepBody(player, sub, solidsNow(), PHYS.gravity, PHYS.settleSpeed, bounceScale, PHYS.ledgeAssist);
 				for (const im of impacts) {
 					if (im.speed > 600) k.shake(Math.min(6, im.speed / 180));
 					if (im.fromAbove && im.speed > 150) doll.land(im.speed);
@@ -485,7 +491,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			flickerT -= dt;
 			if (flickerT <= 0) {
 				if (Math.random() < 0.45) blackout = 0.14; else dim = 0.5;
-				flickerT = 7 + Math.random() * 8;
+				flickerT = 2.5 + Math.random() * 3.5; // the lights are unreliable: flicker often
 			}
 			blackout = Math.max(0, blackout - dt);
 			dim = Math.max(0, dim - dt);
@@ -520,7 +526,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					ghost.x += Math.sign(player.x - ghost.x) * 6 * dt;
 					if (ghost.t <= 0) {
 						// Sometimes, instead of fading away, it rushes at her...
-						if (Math.random() < 0.3 + 0.4 * anger) { ghost.state = "lunge"; ghost.t = 0; monsterPulse = 1; }
+						if (Math.random() < 0.1 + 0.18 * anger) { ghost.state = "lunge"; ghost.t = 0; monsterPulse = 1; }
 						else ghost.state = "out";
 					}
 					break;

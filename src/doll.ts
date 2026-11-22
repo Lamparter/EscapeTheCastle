@@ -100,18 +100,18 @@ export function makeDoll(k: KAPLAYCtx) {
 					target.skirtSx = 1 + 0.15 * s.sink;
 				}
 			} else if (s.vy < 0) {
-				// Rising: arms flung up, legs together, skirt flaring
-				target.armOut = 150;
+				// Rising: arms lifted out in a wide V (well clear of her face), legs together, skirt flaring
+				target.armOut = 118;
 				target.legOut = -4;
 				target.skirtSx = 1.12;
 				target.skirtSy = 0.92;
 				target.head = -4;
 				target.lean = Math.max(-14, Math.min(14, s.vx * 0.04));
 			} else {
-				// Falling: arms flailing overhead, legs kicking, the skirt billowing up
+				// Falling: arms out for balance, flapping a little, legs kicking, the skirt billowing up
 				const flail = Math.sin(t * 19);
-				target.armOut = 160 + 12 * flail;
-				target.armSwing = 10 * Math.sin(t * 13);
+				target.armOut = 100 + 10 * flail;
+				target.armSwing = 6 * Math.sin(t * 13);
 				target.legOut = 12;
 				target.legSwing = 10 * Math.sin(t * 15);
 				target.skirtSx = 1.2;
@@ -121,7 +121,7 @@ export function makeDoll(k: KAPLAYCtx) {
 			}
 			if (s.carrying) {
 				// Holding the item up over her head
-				target.armOut = 168 + 3 * breath;
+				target.armOut = 146 + 2 * breath;
 				target.armSwing = 0;
 			}
 

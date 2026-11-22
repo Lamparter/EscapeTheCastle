@@ -23,7 +23,7 @@
 		{"name": "painting_l2", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting", "bustYaw": -28},
 		{"name": "key", "build": "key", "yaw": 0, "tilt": 0, "fit": "width", "size": 36},
 		{"name": "rocking_horse", "build": "rocking_horse", "yaw": 15, "fit": "width", "size": 150},
-		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "width", "size": 112, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
+		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "height", "size": 186, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
 		{"name": "shelf", "build": "shelf", "yaw": 0, "tilt": 6, "fit": "width", "size": 190},
 		{"name": "monster", "model": "marble_bust_01", "yaw": 0, "tilt": -10, "fit": "height", "size": 170},
 		{"name": "gballet", "build": "goth_ballet", "yaw": 0, "tilt": 8, "fit": "height", "size": 200, "passes": {"gballet_bodice": ["bodice"], "gballet_collar": ["collar"], "gballet_tutu": ["tutu"], "gballet_shoe": ["shoe"]}}

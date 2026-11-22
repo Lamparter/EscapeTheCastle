@@ -33,7 +33,7 @@ export const FURNITURE: Furniture[] = [
 	{ id: "bed", sprite: "bed", left: 96, bottom: FLOOR_Y + 2, bounce: 0.7 },
 	{ id: "nightstand", sprite: "nightstand", left: 470, bottom: FLOOR_Y + 2, bounce: 0.3 },
 	{ id: "wardrobe", sprite: "wardrobe", left: 1662 - SPRITES.wardrobe.w, bottom: FLOOR_Y + 2, bounce: 0.3 },
-	{ id: "shelf", sprite: "shelf", left: 1668, bottom: 272 + SPRITES.shelf.h, bounce: 0.3 }, // headroom for the doll
+	{ id: "shelf", sprite: "shelf", left: 1668, bottom: 300 + SPRITES.shelf.h, bounce: 0.3 }, // headroom for the doll, and an easy hop from the wardrobe
 ];
 
 const furnitureTop = (f: Furniture) => f.bottom - SPRITES[f.sprite].h;
@@ -43,7 +43,7 @@ export const FIXED: Solid[] = [
 	{ id: "floor", x: 0, y: FLOOR_Y, w: ROOM.w, h: ROOM.h - FLOOR_Y + 200, bounce: 0.86 },
 	{ id: "wallL", x: -200, y: -200, w: WALL_L + 200, h: ROOM.h + 400, bounce: 0.82 },
 	{ id: "wallR", x: WALL_R, y: -200, w: 200 + 64, h: ROOM.h + 400, bounce: 0.82 },
-	{ id: "ceiling", x: 0, y: -200, w: ROOM.w, h: CEIL_Y + 200, bounce: 0.7 },
+	{ id: "ceiling", x: 0, y: -200, w: ROOM.w, h: CEIL_Y + 200, bounce: 0.2 }, // a dull bump, so a head-bonk never flings you back down
 	...FURNITURE.flatMap((f) => spriteSolids(f.sprite, f.id, f.left, furnitureTop(f), f.bounce)),
 ];
 
@@ -79,7 +79,7 @@ export const ITEMS: ItemDef[] = [
 ];
 
 /** The slide hatch sits on the shelf: bottom-centre of its sprite. Touching its visible pixels with the key escapes. */
-export const HATCH = { cx: 1791, bottom: 278 };
+export const HATCH = { cx: 1764, bottom: 301 }; // centred on the shelf, standing on it
 
 /** The chandelier sprite hangs by its chain from the ceiling rose at (x, y); len = distance to its bottom finial. */
 export const CHANDELIER = { x: 900, y: 0, len: SPRITES.chandelier.h };

@@ -89,7 +89,8 @@ export function stepBody(
 	// Surfaces follow the sprites' pixels, so a piece of furniture is a stack of rects with small
 	// ledges between them (a carved crown, a moulding). Each axis is resolved against the single
 	// nearest blocking rect, so overlapping a neighbouring rect never flips the resolution.
-	const hitting = () => solids.filter((s) => overlaps(bodyRect(b), s));
+	// (Resting on a surface leaves a floating-point hair of overlap: that is contact, not a collision.)
+	const hitting = () => solids.filter((s) => overlaps(bodyRect(b), s, 1e-6));
 
 	// X axis
 	b.x += b.vx * dt;

@@ -26,6 +26,8 @@ export const PHYS = {
 	jumpBuffer: 0.15,
 	/** You can still ground-jump this long after touching a surface. */
 	contactGrace: 0.08,
+	/** Still rising from a bounce this long after touching a surface counts as touching it, for jumps. */
+	bounceGrace: 0.6,
 	/** Hard floor landings shove you sideways by up to this much: the bouncy floor is uneven and chaotic. */
 	floorChaos: 80,
 	/** Below this impact speed a landing settles instead of bouncing again. */
@@ -38,6 +40,8 @@ export const PHYS = {
 	substeps: 4,
 	/** Ledges this tall or lower (the steps in carved furniture tops) are walked and drifted up onto. */
 	stepUp: 9,
+	/** Falling past a ledge with your feet at most this far below its top climbs you onto it (a forgiving mantle). */
+	ledgeAssist: 24,
 };
 
 /** Dark, desaturated UI/effects palette. Call once a KAPLAY context exists. */

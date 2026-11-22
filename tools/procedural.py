@@ -347,44 +347,93 @@ def build_rocking_horse(cfg, **_):
     return _finish({"horse": objs})
 
 
+def _lancet(half, spring, y, steps=14):
+    """A pointed Gothic arch outline (bottom-left, up, over the point, down to bottom-right) of span
+    2*half whose arcs spring at height `spring`; returns (points, apex height)."""
+    R = 1.6 * half
+    c = R - half
+    t0 = math.acos(-c / R)                   # angle where the left arc reaches x = 0 (the point)
+    left = [(c + R * math.cos(math.pi - (math.pi - t0) * k / steps), y, spring + R * math.sin(math.pi - (math.pi - t0) * k / steps)) for k in range(steps + 1)]
+    right = [(-x, y, z) for (x, _, z) in reversed(left[:-1])]
+    return [(-half, y, 0.0)] + left + right + [(half, y, 0.0)], spring + R * math.sin(t0)
+
+
+def _fill(name, pts, mat):
+    """Flat face filling a closed outline (in the x-z plane)."""
+    return _mesh(name, list(pts), [list(range(len(pts)))], mat)
+
+
 def build_hatch(cfg, **_):
-    gold = photo("HatchGold", "metal_plate", mix_color=BRASS, scale=8, metal=0.6, rough=0.3)
+    """The slide hatch, a little Gothic Revival doorway: a pointed lancet opening into the dark, framed
+    by carved mahogany mouldings with a gilt bead, turned columns with capitals, a crocketed finial and
+    a polished brass threshold. Chained shut with iron chains and an ornate brass shield padlock
+    (the `lock` pass, which falls away when the key is used)."""
+    mahogany = photo("HatchMahogany", "dark_wood", tint=(0.62, 0.36, 0.26), scale=3, rough=0.45, coat=0.25)
+    carved = photo("HatchCarved", "dark_wood", tint=(0.5, 0.29, 0.21), scale=6, rough=0.5)
+    gold = photo("HatchGold", "metal_plate", mix_color=BRASS, scale=8, metal=0.6, rough=0.28)
     void = _material("Void", (0.004, 0.004, 0.006), rough=1.0)
-    vinyl = photo("SlideVinyl", "leather_white", tint=(0.75, 0.6, 0.25), scale=6, coat=0.6, rough=0.3)
-    iron = photo("Iron", "rusty_metal", tint=(0.6, 0.55, 0.5), scale=20, metal=0.8)
-    lockbrass = photo("LockBrass", "metal_plate", mix_color=BRASS, scale=25, metal=0.6, rough=0.35)
-    w, h_rect = 0.4, 0.6
-    arch = [(-w, 0.0, 0.0), (-w, 0.0, h_rect)]
-    arch += [(-w * math.cos(math.radians(a)), 0.0, h_rect + w * math.sin(math.radians(a))) for a in range(10, 171, 10)]
-    arch += [(w, 0.0, h_rect), (w, 0.0, 0.0)]
-    frame = [tube_path(arch, 0.055, gold)]
-    # Dark opening (flat fill of the arch outline, slightly behind the frame)
-    mesh = bpy.data.meshes.new("Opening")
-    verts = [(x, 0.04, z) for (x, _, z) in arch]
-    mesh.from_pydata(verts, [], [list(range(len(verts)))])
-    op = bpy.data.objects.new("Opening", mesh)
-    bpy.context.scene.collection.objects.link(op)
-    _assign(op, void)
-    frame.append(op)
-    # The slide's inflated entry lip across the bottom, and its ramp falling away into the dark
-    frame.append(limb((-w + 0.03, -0.02, 0.06), (w - 0.03, -0.02, 0.06), 0.06, vinyl))
-    # Chains: two crossing diagonals of alternating links, plus a padlock
+    iron = photo("Iron", "rusty_metal", tint=(0.45, 0.42, 0.4), scale=20, metal=0.8)
+    lockbrass = photo("LockBrass", "metal_plate", mix_color=BRASS, scale=25, metal=0.6, rough=0.3)
+    w, spring = 0.34, 0.5
+    frame = []
+
+    # Backing panel and the dark opening
+    back, apex = _lancet(w + 0.2, spring, 0.08)
+    frame.append(_fill("HatchBack", [(x, 0.08, z) for (x, _, z) in back], mahogany))
+    hole, top = _lancet(w, spring, 0.02)
+    frame.append(_fill("Opening", hole, void))
+    # Mouldings: gilt bead at the opening, a fat torus moulding, a fillet and an outer roll
+    for off, r, mat in ((0.012, 0.016, gold), (0.06, 0.04, carved), (0.115, 0.016, gold), (0.16, 0.03, mahogany)):
+        pts, _ = _lancet(w + off, spring, -0.01 - r * 0.5)
+        frame.append(tube_path(pts, r, mat))
+    # Hood moulding over the arch with carved label stops
+    hood, hood_top = _lancet(w + 0.22, spring, -0.06)
+    hood = [p for p in hood if p[2] >= spring - 0.02]
+    frame.append(tube_path(hood, 0.028, carved))
+    for sx in (-1, 1):
+        frame.append(sphere((sx * (w + 0.22), -0.07, spring - 0.03), (1, 0.8, 1.2), 0.04, carved))
+    # Crocketed finial at the point
+    frame.append(limb((0, -0.06, hood_top - 0.02), (0, -0.06, hood_top + 0.16), 0.035, carved, r_end=0.004))
+    for k in range(3):
+        z = hood_top + 0.02 + k * 0.045
+        for sx in (-1, 1):
+            frame.append(sphere((sx * (0.03 - k * 0.008), -0.07, z), (1, 0.8, 0.8), 0.018 - k * 0.004, carved))
+    frame.append(sphere((0, -0.06, hood_top + 0.17), (1, 1, 1), 0.022, gold))
+    # Turned columns either side: plinth, ringed shaft, bell capital
+    for sx in (-1, 1):
+        x = sx * (w + 0.245)
+        frame.append(box((x, -0.02, 0.04), (0.11, 0.1, 0.08), carved, bevel=0.01))
+        frame.append(limb((x, -0.03, 0.08), (x, -0.03, spring - 0.06), 0.028, mahogany))
+        for z in (0.1, 0.18, spring * 0.5, spring - 0.1):
+            frame.append(torus((x, -0.03, z), 0.031, 0.008, gold if z == spring * 0.5 else carved))
+        frame.append(limb((x, -0.03, spring - 0.07), (x, -0.03, spring), 0.03, carved, r_end=0.05))
+        frame.append(box((x, -0.03, spring + 0.015), (0.12, 0.1, 0.03), carved, bevel=0.008))
+    # Polished brass threshold
+    frame.append(box((0, -0.05, 0.015), (2 * w + 0.66, 0.14, 0.03), gold, bevel=0.008))
+
+    # Chains crossing the opening, and an ornate shield padlock
     lock = []
-    for (x0, z0, x1, z1) in ((-w, 0.62, w, 0.22), (w, 0.62, -w, 0.22)):
-        a, b = Vector((x0, -0.06, z0)), Vector((x1, -0.06, z1))
-        n = 26
+    for (x0, z0, x1, z1) in ((-w, spring + 0.12, w, 0.12), (w, spring + 0.12, -w, 0.12)):
+        a, b = Vector((x0, -0.08, z0)), Vector((x1, -0.08, z1))
+        n = 24
         d = (b - a).normalized()
         ang = math.atan2(d.z, d.x)
         for i in range(n):
             p = a.lerp(b, (i + 0.5) / n)
             o = torus(tuple(p), 0.022, 0.006, iron)
-            # Oval links, alternating face-on and edge-on along the chain
             o.scale = (1.5, 1.0, 1.0)
             o.rotation_euler = (math.pi / 2 if i % 2 == 0 else 0.0, -ang, 0)
             lock.append(o)
-    lock.append(box((0, -0.1, 0.36), (0.12, 0.05, 0.1), lockbrass, bevel=0.015))
-    lock.append(torus((0, -0.1, 0.43), 0.04, 0.009, iron, rot=(math.pi / 2, 0, 0)))
-    lock.append(sphere((0, -0.128, 0.355), (1, 0.4, 1.4), 0.011, _material("Keyhole", (0.0, 0.0, 0.0), rough=1)))
+    cz = (spring + 0.12 + 0.12) / 2
+    # Shield padlock: shackle through the chains, a domed brass body with a scrolled top edge,
+    # a raised escutcheon and keyhole
+    lock.append(torus((0, -0.13, cz + 0.1), 0.06, 0.014, iron, rot=(math.pi / 2, 0, 0)))
+    lock.append(sphere((0, -0.15, cz), (1.0, 0.4, 0.8), 0.1, lockbrass))
+    lock.append(sphere((0, -0.15, cz - 0.07), (0.7, 0.38, 0.75), 0.075, lockbrass))
+    lock.append(tube_path([(-0.085, -0.19, cz + 0.05), (-0.03, -0.195, cz + 0.075), (0, -0.197, cz + 0.06),
+                           (0.03, -0.195, cz + 0.075), (0.085, -0.19, cz + 0.05)], 0.01, gold))
+    lock.append(sphere((0, -0.19, cz - 0.02), (1, 0.35, 1.25), 0.03, gold))
+    lock.append(sphere((0, -0.205, cz - 0.022), (1, 0.4, 1.7), 0.011, _material("Keyhole", (0.0, 0.0, 0.0), rough=1)))
     return _finish({"frame": frame, "lock": lock})
 
 
@@ -583,28 +632,114 @@ def build_room(cfg, **_):
     shell.append(_box(wl, wr, D - 0.05, D, Z(670), Z(626), wood, bevel=0.008))
     shell.append(limb((wl, D - 0.05, Z(626)), (wr, D - 0.05, Z(626)), 0.02, wood))
 
-    # Arched sash windows looking out on a real moonlit night
+    # Victorian arched sash windows on a real moonlit night: a moulded mahogany surround with a gilt
+    # bead and carved keystone, a corbelled sill, cream-painted sashes (two-over-two below, a sunburst
+    # fanlight in the arch), and heavy velvet drapes on a brass pole, gathered in gilt tie-backs.
+    velvet = photo("DrapeVelvet", "velour_velvet", scale=3, mix_color=((0.085, 0.022, 0.03), 0.86), rough=0.9)
+    mahog = photo("WinMahogany", "dark_wood", tint=(0.6, 0.36, 0.27), scale=2, rough=0.45, coat=0.2)
     for i, win in enumerate(L["windows"]):
         cx, top, w, h = X(win["x"]), Z(win["y"]), win["w"] / 100, win["h"] / 100
         r = w / 2
         bottom = top - h
-        def arch(rad, y, steps=18):
-            pts = [(cx - rad, y, bottom), (cx - rad, y, top - r)]
-            pts += [(cx - rad * math.cos(a), y, top - r + rad * math.sin(a)) for a in [math.pi * k / steps for k in range(1, steps)]]
-            pts += [(cx + rad, y, top - r), (cx + rad, y, bottom)]
+        spring_z = top - r
+        def arch(rad, y, steps=24):
+            pts = [(cx - rad, y, bottom), (cx - rad, y, spring_z)]
+            pts += [(cx - rad * math.cos(a), y, spring_z + rad * math.sin(a)) for a in [math.pi * k / steps for k in range(1, steps)]]
+            pts += [(cx + rad, y, spring_z), (cx + rad, y, bottom)]
             return pts
         crop = win["sky"]
         verts = [(x, D - 0.015, z) for (x, _, z) in arch(r, D - 0.015)]
         uvs = [(crop[0] + (x - (cx - r)) / w * (crop[2] - crop[0]), 1 - crop[3] + (z - bottom) / h * (crop[3] - crop[1])) for (x, _, z) in verts]
         shell.append(_mesh(f"Sky{i}", verts, [list(range(len(verts)))], _sky(f"Sky{i}", L["sky"], crop), uvs))
-        shell.append(tube_path(arch(r + 0.07, D - 0.04), 0.07, paint))
-        shell.append(tube_path(arch(r, D - 0.03), 0.035, paint))
-        shell.append(_box(cx - 0.018, cx + 0.018, D - 0.04, D - 0.02, bottom, top - 0.02, paint))
-        for fz in (0.3, 0.62):
-            shell.append(_box(cx - r, cx + r, D - 0.04, D - 0.02, bottom + h * fz - 0.018, bottom + h * fz + 0.018, paint))
-        for a in (math.pi * 0.25, math.pi * 0.75):
-            shell.append(limb((cx, D - 0.03, top - r), (cx + math.cos(a) * r, D - 0.03, top - r + math.sin(a) * r), 0.016, paint))
-        shell.append(_box(cx - r - 0.18, cx + r + 0.18, D - 0.16, D, bottom - 0.1, bottom, paint, bevel=0.015))
+
+        # Sashes: a frame round the glass, meeting rail, glazing bars, and a sunburst fanlight
+        shell.append(tube_path(arch(r, D - 0.03), 0.028, paint))
+        shell.append(_box(cx - r, cx + r, D - 0.045, D - 0.02, spring_z - 0.025, spring_z + 0.01, paint, bevel=0.006))   # transom
+        meet = bottom + (spring_z - bottom) * 0.5
+        shell.append(_box(cx - r, cx + r, D - 0.05, D - 0.02, meet - 0.022, meet + 0.022, paint, bevel=0.006))           # meeting rail
+        shell.append(_box(cx - 0.011, cx + 0.011, D - 0.04, D - 0.02, bottom, spring_z, paint))                            # glazing bar
+        for sx in (-1, 1):                                                                                                    # sash horns
+            shell.append(_box(cx + sx * (r - 0.03) - 0.012, cx + sx * (r - 0.03) + 0.012, D - 0.05, D - 0.02, meet - 0.06, meet - 0.02, paint, bevel=0.005))
+        hub = r * 0.28
+        fan = [(cx + hub * math.cos(a), D - 0.032, spring_z + hub * math.sin(a)) for a in [math.pi * k / 16 for k in range(17)]]
+        shell.append(tube_path(fan, 0.011, paint))
+        shell.append(tube_path([(x, D - 0.032, z) for (x, _, z) in arch(r * 0.72, 0, 24)[1:-1]], 0.009, paint))
+        for k in range(1, 6):
+            a = math.pi * k / 6
+            shell.append(limb((cx + hub * math.cos(a), D - 0.032, spring_z + hub * math.sin(a)),
+                              (cx + r * math.cos(a), D - 0.032, spring_z + r * math.sin(a)), 0.009, paint))
+
+        # Moulded surround: gilt bead, a fat roll, a flat band and an outer ogee roll, in mahogany
+        for off, rad, y, mat in ((0.035, 0.014, D - 0.04, gilt), (0.075, 0.035, D - 0.05, mahog), (0.13, 0.018, D - 0.04, mahog), (0.165, 0.026, D - 0.05, mahog)):
+            shell.append(tube_path(arch(r + off, y), rad, mat))
+        # Carved keystone with a gilt boss
+        ky = top + 0.075
+        shell.append(_box(cx - 0.055, cx + 0.055, D - 0.1, D - 0.02, ky - 0.06, ky + 0.1, mahog, bevel=0.012))
+        shell.append(sphere((cx, D - 0.105, ky + 0.02), (1, 0.5, 1), 0.03, gilt))
+        # Sill on two carved corbels
+        shell.append(_box(cx - r - 0.24, cx + r + 0.24, D - 0.2, D, bottom - 0.07, bottom, mahog, bevel=0.015))
+        shell.append(limb((cx - r - 0.24, D - 0.2, bottom - 0.005), (cx + r + 0.24, D - 0.2, bottom - 0.005), 0.012, gilt))
+        for sx in (-1, 1):
+            shell.append(_box(cx + sx * (r + 0.12) - 0.04, cx + sx * (r + 0.12) + 0.04, D - 0.13, D, bottom - 0.2, bottom - 0.07, mahog, bevel=0.015))
+            shell.append(sphere((cx + sx * (r + 0.12), D - 0.13, bottom - 0.2), (1, 0.7, 0.7), 0.04, mahog))
+
+        # Brass curtain pole above the arch, with ball finials
+        pole_z = top + 0.2
+        half = r + 0.5
+        shell.append(limb((cx - half, D - 0.22, pole_z), (cx + half, D - 0.22, pole_z), 0.02, gilt))
+        for sx in (-1, 1):
+            shell.append(sphere((cx + sx * (half + 0.04), D - 0.22, pole_z), (1, 1, 1), 0.045, gilt))
+            shell.append(limb((cx + sx * (half - 0.08), D - 0.04, pole_z), (cx + sx * (half - 0.08), D - 0.22, pole_z), 0.012, gilt))
+
+        # Velvet drapes: deep pleats, gathered into gilt tie-backs and flaring to the floor-length hem
+        drop_to = Z(600)
+        tie_z = bottom + (spring_z - bottom) * 0.25
+        for sx in (-1, 1):
+            outer = cx + sx * (half - 0.03)
+            inner_top = cx + sx * (r * 0.62)
+            cols, rows = 48, 40
+            pleats = 5 if w > 1.5 else 4
+            verts, faces = [], []
+            for j in range(rows + 1):
+                z = pole_z - (pole_z - drop_to) * j / rows
+                if z >= tie_z:
+                    g = 1 - 0.78 * ((pole_z - z) / (pole_z - tie_z)) ** 1.6          # fraction of full width
+                else:
+                    g = 0.22 + 0.33 * ((tie_z - z) / (tie_z - drop_to)) ** 0.8
+                for c in range(cols + 1):
+                    u = c / cols
+                    x = outer + (inner_top - outer) * u * g
+                    depth = 0.09 * (0.45 + 0.55 * (1 - g)) * (math.sin(u * pleats * 2 * math.pi) + 0.3 * math.sin(u * pleats * 4.3 * math.pi + 1.1))
+                    verts.append((x, D - 0.25 - 0.05 * (1 - u) - abs(depth), z))
+            for j in range(rows):
+                for c in range(cols):
+                    a0 = j * (cols + 1) + c
+                    q = (a0, a0 + 1, a0 + cols + 2, a0 + cols + 1)
+                    faces.append(q if sx < 0 else tuple(reversed(q)))
+            drape = _mesh(f"Drape{i}{sx}", verts, faces, velvet)
+            _smooth(drape, 1)
+            shell.append(drape)
+            # Tie-back: a gilt cord band round the gathered drape, with a hanging tassel
+            tx = outer + (inner_top - outer) * 0.22 * 0.5
+            span = abs(inner_top - outer) * 0.24
+            shell.append(limb((tx - span * 0.6, D - 0.34, tie_z), (tx + span * 0.6, D - 0.34, tie_z), 0.018, gilt))
+            shell.append(sphere((tx, D - 0.35, tie_z - 0.03), (1, 0.8, 1), 0.03, gilt))
+            shell.append(limb((tx, D - 0.35, tie_z - 0.05), (tx, D - 0.35, tie_z - 0.2), 0.012, gilt, r_end=0.04))
+        # A swagged pelmet of the same velvet across the pole
+        pel = []
+        cols = 60
+        for j in range(9):
+            for c in range(cols + 1):
+                u = c / cols
+                x = cx - half + 2 * half * u
+                sag = 0.16 * abs(math.sin(u * 3 * math.pi))
+                z = pole_z + 0.04 - (0.06 + sag) * j / 8
+                pel.append((x, D - 0.3 - 0.03 * math.sin(u * 3 * math.pi) ** 2, z))
+        pf = [(j * (cols + 1) + c, j * (cols + 1) + c + 1, (j + 1) * (cols + 1) + c + 1, (j + 1) * (cols + 1) + c) for j in range(8) for c in range(cols)]
+        pm = _mesh(f"Pelmet{i}", pel, pf, velvet)
+        _smooth(pm, 1)
+        shell.append(pm)
+        shell.append(limb((cx - half, D - 0.31, pole_z + 0.045), (cx + half, D - 0.31, pole_z + 0.045), 0.014, gilt))
 
     # The dollhouse box: the room above, and gilt trim on the cut edges
     shell.append(_box(0, W, -0.02, D, Z(-30), Z(-150), wood))

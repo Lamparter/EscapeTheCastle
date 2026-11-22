@@ -81,10 +81,11 @@ POSES = {
     "idle": {**REST, "armOut": 3, "head": -4},
     "walk L": {**REST, "walk": 1, "w": 1, "armOut": 7, "armSwing": 16, "legSwing": 6, "lean": 8, "skirt": -4, "head": -3},
     "walk R": {**REST, "walk": 1, "w": -1, "armOut": 7, "armSwing": -16, "legSwing": -6, "lean": -2, "skirt": 4, "head": 3},
-    "rise": {**REST, "armOut": 150, "legOut": -4, "skirtSx": 1.12, "skirtSy": 0.92, "head": -4},
-    "fall": {**REST, "armOut": 165, "armSwing": 8, "legOut": 12, "legSwing": 8, "skirtSx": 1.2, "skirtSy": 0.84, "head": 8},
+    "rise": {**REST, "armOut": 118, "legOut": -4, "skirtSx": 1.12, "skirtSy": 0.92, "head": -4},
+    "fall": {**REST, "armOut": 110, "armSwing": 6, "legOut": 12, "legSwing": 8, "skirtSx": 1.2, "skirtSy": 0.84, "head": 8},
+    "fall2": {**REST, "armOut": 90, "armSwing": -6, "legOut": 12, "legSwing": -8, "skirtSx": 1.2, "skirtSy": 0.84, "head": 8, "lean": 14},
     "sink": {**REST, "sy": 0.7, "sx": 1.16, "armOut": 60, "legOut": 8, "head": 6, "skirtSx": 1.15},
-    "carry": {**REST, "armOut": 168},
+    "carry": {**REST, "armOut": 148},
 }
 ow, oh = int(W * 2.4), int(H * 1.35)
 tiles = [compose(p, ow, oh) for p in POSES.values()]
