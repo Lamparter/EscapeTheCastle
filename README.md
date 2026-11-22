@@ -24,7 +24,8 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/sprites.ts` - hitboxes from each rendered sprite's visible pixels
 - `src/ui.ts` - UI built from photo materials (dark wood, brass)
 - `src/doll.ts` - the player: a real antique doll photo (Rijksmuseum, CC0) cut into parts and animated as a cut-out rig
-- `tools/cut_doll.py` - cuts the doll photo into head/arms/legs/body layers, makes her Gothic (black curls and dress) and fits the rendered skirt
+- `tools/cut_doll.py` - cuts the doll photo into head/arms/legs/body layers, re-proportions her like a dancer and makes her a goth ballerina (black curls, rendered satin bodice, lace ruff, tulle tutu and pointe shoes)
+- `tools/pose_sheet.py` - renders the doll rig in every animation pose to one image, to check her proportions and joints
 - `src/draw.ts` - draws the rendered images (furniture, portrait, hatch, chandelier, player) and image-based light effects
 - `src/config.ts` - tuning values and the colour palette
 - `src/sprites.generated.ts` - sizes and visible-pixel hitboxes of every rendered image (generated)

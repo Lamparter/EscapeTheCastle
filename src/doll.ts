@@ -3,9 +3,9 @@ import { spriteKey } from "./sprites";
 import { SPRITES, type SpriteName } from "./sprites.generated";
 
 /**
- * The player: a real Victorian bisque doll (Rijksmuseum BK-1972-141, CC0), cut into parts and made
- * Gothic (black curls, black dress and stockings, a pleated black velvet skirt), animated as a
- * cut-out rig. See tools/cut_doll.py. Every part is a photo layer of the same size; each one is
+ * The player: a real Victorian bisque doll (Rijksmuseum BK-1972-141, CC0), cut into parts,
+ * re-proportioned like a dancer and dressed as a goth ballerina (black curls, satin bodice, lace ruff,
+ * tulle tutu, pointe shoes), animated as a cut-out rig. See tools/cut_doll.py and tools/pose_sheet.py. Every part is a photo layer of the same size; each one is
  * rotated about its joint, and the whole body is squashed, stretched, leaned and spun.
  *
  * She faces the viewer, so limbs move like a marionette's: "out" angles raise both arms (or legs)
@@ -33,6 +33,8 @@ type Pose = {
 const REST: Pose = { armOut: 0, armSwing: 0, legOut: 0, legSwing: 0, walk: 0, head: 0, skirt: 0, lean: 0, bob: 0, sx: 1, sy: 1, skirtSx: 1, skirtSy: 1 };
 
 const P = SPRITES.pdoll.pivots;
+/** Offsets below are tuned in units of the original 112-unit doll; scale them with her size. */
+const U = SPRITES.pdoll.h / 112;
 
 export function makeDoll(k: KAPLAYCtx) {
 	const pose: Pose = { ...REST };
@@ -77,14 +79,14 @@ export function makeDoll(k: KAPLAYCtx) {
 					target.armSwing = 16 * w;
 					target.legSwing = 6 * w;
 					target.lean = 5 * w + 3;
-					target.bob = -Math.abs(Math.cos(walkPhase)) * 3;
+					target.bob = -Math.abs(Math.cos(walkPhase)) * 3 * U;
 					target.skirt = -4 * w;
 					target.head = -3 * w;
 				} else {
 					// Idle: breathing, a slow sway, the head drifting to one side
 					target.armOut = 3 + 2 * Math.sin(t * 1.3);
 					target.armSwing = 2 * Math.sin(t * 0.8);
-					target.bob = breath * 0.6;
+					target.bob = breath * 0.6 * U;
 					target.head = 5 * Math.sin(t * 0.55) - 4;
 					target.skirt = 1.5 * Math.sin(t * 0.9);
 				}
@@ -135,7 +137,7 @@ export function makeDoll(k: KAPLAYCtx) {
 			const twirl = spin > 0 ? Math.cos((1 - spin) * Math.PI * 2) : 1;
 			const headTwitch = twitch > 0 ? 18 * twitchDir * Math.sin(Math.min(1, (1 - twitch) * 6) * Math.PI / 2) * twitch : 0;
 			// Walking: each leg lifts in turn
-			const lift = 3.5 * pose.walk;
+			const lift = 3.5 * U * pose.walk;
 			const liftL = -Math.max(0, Math.sin(walkPhase)) * lift, liftR = -Math.max(0, -Math.sin(walkPhase)) * lift;
 
 			const part = (name: SpriteName, pivot: readonly number[], angle: number, dy = 0, scaleX = 1, scaleY = 1) => {

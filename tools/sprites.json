@@ -3,7 +3,7 @@
 	"pixelsPerUnit": 3,
 	"tiltDegrees": 6,
 	"outDir": "public/sprites/nursery",
-	"textures": ["brown_leather", "ceiling_interior", "crepe_satin", "curly_teddy_natural", "dark_wood", "leather_red_02", "leather_white", "metal_plate", "painted_plaster_wall", "rough_linen", "rusty_metal", "velour_velvet", "white_planks_clean"],
+	"textures": ["brown_leather", "ceiling_interior", "crepe_georgette", "crepe_satin", "curly_teddy_natural", "dark_wood", "leather_red_02", "leather_white", "metal_plate", "painted_plaster_wall", "rough_linen", "rusty_metal", "velour_velvet", "white_planks_clean"],
 	"gameTextures": ["herringbone_parquet", "dark_wood", "metal_plate"],
 	"skyPhotos": ["moonlit_golf"],
 	"images": [{"name": "honeysuckle", "url": "https://ids.si.edu/ids/deliveryService?id=CHSDM-1980-73-1MattFlynn&max=3000", "credit": "May Morris for Morris & Co., Honeysuckle sidewall (1883), Cooper Hewitt, Smithsonian Design Museum, CC0"}],
@@ -11,7 +11,7 @@
 		{"name": "room", "build": "room", "background": {"x0": 0, "y0": -140, "w": 1920, "h": 900, "ppu": 1.5}, "passes": {"room": ["shell"], "floor": ["floor"]}, "crop": {"floor": [640, 760]}, "samples": 48, "layout": {"w": 1920, "wallL": 64, "wallR": 1856, "wallpaper": "honeysuckle", "sky": "moonlit_golf", "chandelierX": 900, "windows": [{"x": 610, "y": 170, "w": 170, "h": 210, "sky": [0.47, 0.14, 0.64, 0.5]}, {"x": 1485, "y": 160, "w": 130, "h": 150, "sky": [0.86, 0.24, 0.96, 0.5]}], "wallpaperCrop": [[0.03, 0.88], [0.03, 0.97]]}},
 		{"name": "bed", "model": "GothicBed_01", "yaw": 82, "tilt": 3, "fit": "width", "size": 350},
 		{"name": "wardrobe", "model": "GothicCabinet_01", "yaw": 18, "fit": "height", "size": 280},
-		{"name": "chandelier", "model": "Chandelier_03", "yaw": 0, "fit": "height", "size": 205, "tilt": 0},
+		{"name": "chandelier", "model": "Chandelier_03", "yaw": 0, "fit": "height", "size": 170, "tilt": 0},
 		{"name": "chest", "model": "treasure_chest", "yaw": 18, "fit": "width", "size": 130},
 		{"name": "stool", "model": "painted_wooden_stool", "yaw": 18, "fit": "height", "size": 60},
 		{"name": "pillow", "model": "throw_pillows_01", "yaw": 10, "fit": "width", "size": 80},
@@ -26,6 +26,6 @@
 		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "width", "size": 112, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
 		{"name": "shelf", "build": "shelf", "yaw": 0, "tilt": 6, "fit": "width", "size": 190},
 		{"name": "monster", "model": "marble_bust_01", "yaw": 0, "tilt": -10, "fit": "height", "size": 170},
-		{"name": "gskirt", "build": "gothic_skirt", "yaw": 0, "tilt": 0, "fit": "height", "size": 200}
+		{"name": "gballet", "build": "goth_ballet", "yaw": 0, "tilt": 8, "fit": "height", "size": 200, "passes": {"gballet_bodice": ["bodice"], "gballet_collar": ["collar"], "gballet_tutu": ["tutu"], "gballet_shoe": ["shoe"]}}
 	]
 }

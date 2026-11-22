@@ -681,7 +681,92 @@ def build_gothic_skirt(cfg, **_):
     return _finish({"skirt": objs})
 
 
+def _pleated_ring(name, mat, r_in, r_out, z, pleats=40, wave=0.008, droop=0.0, segs=160, rings=6, ragged=0.0, seed=0):
+    """A flat, pleated ring of fabric (tutu layers, ruffles): radius r_in..r_out at height z,
+    with a wavy outer edge and an optional downward droop towards the edge. `ragged` > 0 makes the
+    pleats irregular (several frequencies, random phases) and the hem uneven, like real tulle."""
+    import random
+    rnd = random.Random(seed)
+    waves = [(pleats, wave, 0.0)]
+    if ragged:
+        waves = [(pleats * m, wave * a, rnd.uniform(0, 6.28)) for m, a in ((1, 0.6), (1.7, 0.35), (2.9, 0.25), (0.45, 0.4))]
+        hem = [(int(rnd.uniform(3, 11)), rnd.uniform(0, 6.28)) for _ in range(4)]
+    verts, faces = [], []
+    for i in range(rings + 1):
+        f = i / rings
+        r = r_in + (r_out - r_in) * f
+        for j in range(segs):
+            th = 2 * math.pi * j / segs
+            w = sum(math.sin(fr * th + ph) * a for fr, a, ph in waves) * f
+            rr = r + w
+            dz = 0.0
+            if ragged:
+                rr += sum(math.sin(n * th + ph) for n, ph in hem) * ragged * f * f
+                dz = sum(math.cos(n * th + ph) for n, ph in hem) * ragged * 0.6 * f * f
+            verts.append((rr * math.cos(th), rr * math.sin(th), z - droop * f * f + w * 0.35 + dz))
+    for i in range(rings):
+        for j in range(segs):
+            a, b = i * segs + j, i * segs + (j + 1) % segs
+            faces.append((a, b, b + segs, a + segs))
+    o = _mesh(name, verts, faces, mat)
+    _smooth(o, 1)
+    return o
+
+
+def build_goth_ballet(cfg, **_):
+    """Costume pieces for the goth ballerina, each its own layer: a fitted black satin bodice with a
+    sweetheart neckline and silver lacing, a black lace ruff collar, a layered black tulle pancake
+    tutu, and a black satin pointe shoe with ribbons. tools/cut_doll.py fits them onto the doll photo."""
+    satin = photo("BalletSatin", "crepe_satin", scale=12, coat=0.6, mix_color=((0.01, 0.009, 0.012), 0.95))
+    tulle = photo("BalletTulle", "crepe_georgette", scale=14, rough=0.8, mix_color=((0.012, 0.011, 0.014), 0.93))
+    lace = photo("BalletLace", "crepe_georgette", scale=30, rough=0.85, mix_color=((0.02, 0.02, 0.024), 0.88))
+    silver = photo("BalletSilver", "crepe_satin", scale=20, coat=0.7, mix_color=((0.55, 0.56, 0.6), 0.7))
+    seam = _material("BalletSeam", (0.05, 0.05, 0.06), rough=0.5)
+    parts = {"bodice": [], "collar": [], "tutu": [], "shoe": []}
+
+    # Bodice: tapered to the waist, sweetheart neckline from two shaped cups, boning seams, lacing
+    parts["bodice"].append(blob([
+        ("capsule", (0, 0, 0.62), (0, 0, 0.74), 0.052),
+        ("ellipsoid", (0, 0, 0.7), 0.06, (1.15, 0.75, 0.9)),
+        ("ellipsoid", (-0.032, -0.012, 0.765), 0.04, (1.0, 0.8, 0.75)),
+        ("ellipsoid", (0.032, -0.012, 0.765), 0.04, (1.0, 0.8, 0.75)),
+    ], satin))
+    for x in (-0.035, -0.012, 0.012, 0.035):
+        parts["bodice"].append(limb((x * 0.9, -0.05, 0.6), (x * 1.1, -0.052, 0.75), 0.0018, seam))
+    for i in range(6):
+        z = 0.62 + i * 0.022
+        parts["bodice"].append(limb((-0.008, -0.056, z), (0.008, -0.056, z + 0.011), 0.0016, silver))
+        parts["bodice"].append(limb((0.008, -0.056, z), (-0.008, -0.056, z + 0.011), 0.0016, silver))
+
+    # Collar: a small ruff of black lace, seen from the front as a scalloped band
+    ruff = _pleated_ring("Ruff", lace, 0.03, 0.075, 0.9, pleats=26, wave=0.012, droop=0.02)
+    ruff.rotation_euler = (math.radians(18), 0, 0)
+    parts["collar"].append(ruff)
+
+    # Tutu: stacked pancake layers of black tulle with wavy, drooping edges, and a satin basque
+    for i in range(9):
+        r = 0.2 + 0.075 * (i / 8) ** 0.8
+        parts["tutu"].append(_pleated_ring(f"Tutu{i}", tulle, 0.055, r, 0.472 - i * 0.004, pleats=55 + i * 7,
+                                           wave=0.006 + i * 0.0006, droop=0.02 + i * 0.004, segs=360, rings=8,
+                                           ragged=0.004 + i * 0.0006, seed=i))
+    band = torus((0, 0, 0.475), 0.058, 0.012, satin)
+    parts["tutu"].append(band)
+
+    # Pointe shoe (en pointe, toe down) with ribbons crossing up the ankle
+    parts["shoe"].append(blob([
+        ("capsule", (0, 0, 0.16), (0, -0.004, 0.06), 0.02),
+        ("ellipsoid", (0, -0.006, 0.05), 0.022, (0.9, 1.0, 1.6)),
+    ], satin))
+    parts["shoe"].append(box((0, -0.006, 0.032), (0.02, 0.022, 0.012), satin, bevel=0.004))
+    for k in range(4):
+        z0 = 0.16 + k * 0.035
+        parts["shoe"].append(limb((-0.024, -0.016, z0), (0.024, -0.016, z0 + 0.03), 0.0045, satin))
+        parts["shoe"].append(limb((0.024, -0.016, z0 + 0.012), (-0.024, -0.016, z0 + 0.042), 0.0045, satin))
+    return _finish(parts)
+
+
 BUILDERS = {
+    "goth_ballet": build_goth_ballet,
     "gothic_skirt": build_gothic_skirt,
     "room": build_room,
     "shelf": build_shelf,

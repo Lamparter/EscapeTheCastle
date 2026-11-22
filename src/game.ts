@@ -113,7 +113,9 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		/** The monster: fades in and out somewhere in the darkness beyond the vignette's light. */
 		const MONSTER_EYES = [{ x: 0.244, y: 0.21 }, { x: 0.482, y: 0.213 }];
 		const MONSTER_GLOW_PAD = 60;
-		const ghost = { a: 0, state: "hidden" as "hidden" | "in" | "hold" | "out", t: 6 + Math.random() * 6, x: 0, y: 0, flip: 1 };
+		const ghost = { a: 0, state: "hidden" as "hidden" | "in" | "hold" | "out" | "lunge", t: 6 + Math.random() * 6, x: 0, y: 0, flip: 1, scale: 1 };
+		/** Fade-to-black after the monster lunges: rises during the lunge, holds, then lifts. */
+		let lungeDark = 0, lungeHold = 0;
 		const doll = makeDoll(k);
 		let flickerT = 6 + Math.random() * 6;
 		let blackout = 0;
@@ -404,7 +406,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					const moved = { ...bodyRect(player), x: player.x - player.hw + step };
 					// Surfaces follow the sprites' pixels, so they can be uneven: step up small ledges,
 					// but anything taller than STEP blocks you.
-					const STEP = 9, feet = player.y + player.hh;
+					const STEP = PHYS.stepUp, feet = player.y + player.hh;
 					const hits = solidsNow().filter((s) => overlaps(moved, s, 0.01));
 					if (hits.every((s) => s.y >= feet - STEP)) {
 						player.x += step;
@@ -425,7 +427,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			const sub = dt / PHYS.substeps;
 			const bounceScale = digging() ? PHYS.digInBounce : 1;
 			for (let i = 0; i < PHYS.substeps; i++) {
-				const impacts = stepBody(player, sub, solidsNow(), PHYS.gravity, PHYS.settleSpeed, bounceScale);
+				const impacts = stepBody(player, sub, solidsNow(), PHYS.gravity, PHYS.settleSpeed, bounceScale, PHYS.stepUp);
 				for (const im of impacts) {
 					if (im.speed > 600) k.shake(Math.min(6, im.speed / 180));
 					if (im.fromAbove && im.speed > 150) doll.land(im.speed);
@@ -503,7 +505,9 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 						ghost.x = player.x + Math.cos(ang) * dist;
 						ghost.y = player.y - 30 + Math.sin(ang) * dist * 0.75;
 						ghost.flip = Math.random() < 0.5 ? -1 : 1;
+						ghost.scale = 1;
 						ghost.state = "in";
+						k.shake(4 + 6 * anger); // the room shudders as it arrives
 					}
 					break;
 				case "in":
@@ -514,15 +518,42 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					ghost.t -= dt;
 					// Drifts closer while you're not looking...
 					ghost.x += Math.sign(player.x - ghost.x) * 6 * dt;
-					if (ghost.t <= 0) ghost.state = "out";
+					if (ghost.t <= 0) {
+						// Sometimes, instead of fading away, it rushes at her...
+						if (Math.random() < 0.3 + 0.4 * anger) { ghost.state = "lunge"; ghost.t = 0; monsterPulse = 1; }
+						else ghost.state = "out";
+					}
 					break;
+				case "lunge": {
+					ghost.t += dt;
+					const p = Math.min(1, ghost.t / 0.55), e = p * p;
+					ghost.x += (player.x - ghost.x) * Math.min(1, dt * (4 + 14 * e));
+					ghost.y += (player.y - 20 - ghost.y) * Math.min(1, dt * (4 + 14 * e));
+					ghost.scale = 1 + 2.4 * e;
+					ghost.a = 1;
+					lungeDark = Math.max(lungeDark, e);
+					k.shake(2 + 9 * e);
+					if (p >= 1) {
+						// ...and the screen goes black; when it lifts, it's gone.
+						ghost.state = "hidden";
+						ghost.a = 0;
+						ghost.scale = 1;
+						ghost.t = (9 + Math.random() * 9) * (1 - 0.5 * anger);
+						lungeDark = 1;
+						lungeHold = 0.4;
+						anger = Math.min(0.85, anger + 0.1);
+					}
+					break;
+				}
 				case "out":
 					ghost.a = Math.max(0, ghost.a - dt / 1.4);
 					if (ghost.a <= 0) { ghost.state = "hidden"; ghost.t = (7 + Math.random() * 9) * (1 - 0.5 * anger); }
 					break;
 			}
 			// It shrinks from the light: walk towards it and it vanishes quickly.
-			if (lit && ghost.state !== "hidden") {
+			if (lungeHold > 0) lungeHold -= dt;
+			else if (ghost.state !== "lunge") lungeDark = Math.max(0, lungeDark - dt / 0.9);
+			if (lit && ghost.state !== "hidden" && ghost.state !== "lunge") {
 				ghost.state = "out";
 				ghost.a = Math.max(0, ghost.a - dt / 0.35);
 			}
@@ -663,7 +694,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				const green = k.rgb(150, 235, 180);
 				const gs = k.toScreen(v(ghost.x, ghost.y));
 				const breathe = 1 + 0.035 * Math.sin(t * 1.7);
-				const mw = m.w * u * 1.05 * breathe, mh = m.h * u * 1.05 * breathe;
+				const mw = m.w * u * 1.05 * breathe * ghost.scale, mh = m.h * u * 1.05 * breathe * ghost.scale;
 				const jitter = anger > 0.5 ? Math.sin(t * 31) * 1.2 * u : 0;
 				const strength = (0.45 + 0.5 * Math.min(1, anger + 0.2) + monsterPulse * 0.2) * ghost.a;
 				// Eye centres measured on the monster render (fractions of its width/height).
@@ -685,6 +716,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 				drawHud(W, H, u);
 				if (phase === "sliding") ui.shade(0, 0, W, H, Math.min(1, slideT / 1.4));
+				if (lungeDark > 0) ui.shade(0, 0, W, H, lungeDark);
 				if (paused) drawMenu(W, H, u);
 			},
 		}]);

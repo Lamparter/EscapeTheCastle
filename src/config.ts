@@ -36,6 +36,8 @@ export const PHYS = {
 	/** Max distance from the player's centre for picking up / putting down furniture. */
 	reach: 120,
 	substeps: 4,
+	/** Ledges this tall or lower (the steps in carved furniture tops) are walked and drifted up onto. */
+	stepUp: 9,
 };
 
 /** Dark, desaturated UI/effects palette. Call once a KAPLAY context exists. */

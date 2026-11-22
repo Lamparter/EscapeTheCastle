@@ -33,7 +33,7 @@ export const FURNITURE: Furniture[] = [
 	{ id: "bed", sprite: "bed", left: 96, bottom: FLOOR_Y + 2, bounce: 0.7 },
 	{ id: "nightstand", sprite: "nightstand", left: 470, bottom: FLOOR_Y + 2, bounce: 0.3 },
 	{ id: "wardrobe", sprite: "wardrobe", left: 1662 - SPRITES.wardrobe.w, bottom: FLOOR_Y + 2, bounce: 0.3 },
-	{ id: "shelf", sprite: "shelf", left: 1668, bottom: 248 + SPRITES.shelf.h, bounce: 0.3 },
+	{ id: "shelf", sprite: "shelf", left: 1668, bottom: 272 + SPRITES.shelf.h, bounce: 0.3 }, // headroom for the doll
 ];
 
 const furnitureTop = (f: Furniture) => f.bottom - SPRITES[f.sprite].h;
@@ -79,10 +79,10 @@ export const ITEMS: ItemDef[] = [
 ];
 
 /** The slide hatch sits on the shelf: bottom-centre of its sprite. Touching its visible pixels with the key escapes. */
-export const HATCH = { cx: 1791, bottom: 254 };
+export const HATCH = { cx: 1791, bottom: 278 };
 
 /** The chandelier sprite hangs by its chain from the ceiling rose at (x, y); len = distance to its bottom finial. */
-export const CHANDELIER = { x: 900, y: 20, len: SPRITES.chandelier.h };
+export const CHANDELIER = { x: 900, y: 0, len: SPRITES.chandelier.h };
 /** Where the key hangs (centre), relative to the chandelier's bottom finial. */
 export const KEY_HANG = { dx: 0, dy: 14 };
 
