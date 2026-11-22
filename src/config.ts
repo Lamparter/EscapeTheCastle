@@ -6,31 +6,33 @@ export const VIEW_HEIGHT = 540;
 export const FONT = `Georgia, "Times New Roman", serif`;
 
 export const PHYS = {
-	gravity: 1400,
-	/** Launch speed at 0% and 100% charge. Full power reaches ~300 units straight up. */
-	minLaunch: 240,
-	maxLaunch: 920,
-	/** Seconds for the charge bar to go from empty to full (it then swings back down). */
-	chargeSweep: 0.9,
-	/** A tap (shorter than this, in seconds) is a quick hop; holding this long starts a charge. */
-	holdToCharge: 0.2,
-	/** Speed of the quick hop. */
-	hopSpeed: 470,
-	/** A hop pressed in mid-air waits this long for you to touch a surface. */
-	hopBuffer: 0.3,
-	/** A charged launch pressed in mid-air waits this long for you to touch a surface. */
-	launchBuffer: 1.5,
-	/** You can still jump this long after leaving a surface (bouncy floors rarely let you rest). */
+	/** Low gravity: everything floats and flies further, for a chaotic feel. */
+	gravity: 900,
+	/** W / Space jump speed (~110 units high). The double jump uses the same speed. */
+	jumpSpeed: 445,
+	/** Air jumps available before you touch a surface again. */
+	airJumps: 1,
+	/** Springing out of the floor with S: speed at the shallowest and deepest dent (~320 high). */
+	springMin: 445,
+	springMax: 760,
+	/** Seconds of holding S to sink fully into the vinyl, and how deep that looks. */
+	sinkTime: 0.7,
+	sinkDepth: 34,
+	/** Holding S while bouncing "digs in": bounces keep only this fraction of their usual energy. */
+	digInBounce: 0.3,
+	/** Slow walking on surfaces with A / D. */
+	walkSpeed: 120,
+	/** A jump pressed in mid-air (with no air jump left) waits this long for a landing. */
+	jumpBuffer: 0.15,
+	/** You can still ground-jump this long after touching a surface. */
 	contactGrace: 0.08,
 	/** Hard floor landings shove you sideways by up to this much: the castle is uneven and chaotic. */
-	floorChaos: 90,
-	/** Seconds the bar stays at 100% before swinging back down. */
-	chargeHold: 0.35,
+	floorChaos: 80,
 	/** Below this impact speed a landing settles instead of bouncing again. */
-	settleSpeed: 160,
-	/** Horizontal acceleration and speed cap for the slight air drift. */
-	driftAccel: 520,
-	driftMax: 260,
+	settleSpeed: 110,
+	/** Horizontal acceleration and speed cap for air drift with A / D. */
+	driftAccel: 420,
+	driftMax: 170,
 	/** Max distance from the player's centre for picking up / putting down furniture. */
 	reach: 120,
 	substeps: 4,

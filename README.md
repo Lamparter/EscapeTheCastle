@@ -1,25 +1,24 @@
 # Escape The Castle
 
-A horror game inside a bouncy castle. You can't walk: charge a jump, aim it, and bounce your way out of each room.
+A horror game inside a bouncy castle. Low gravity, a very bouncy floor and something lurking under the vinyl: bounce your way out of each room.
 This is the first mock-up: Room I (The Nursery, the tutorial).
 
 ## Controls
 
 | Input | Action |
 | --- | --- |
-| Tap Click / Space | Quick hop toward the pointer |
-| Hold Click / Space | Start charging (the bar keeps swinging after you let go); click again to launch |
-| Pointer | Aim (the dots show the jump) |
-| A / D or Left / Right | Drift a little while airborne |
-| E | Pick up / put down light furniture (toy chest, stool, pillow) |
-| Right click | Cancel a charge |
+| A / D or Left / Right | Walk slowly; drift while airborne |
+| W / Space / Up | Jump; press again in mid-air to double jump (one per landing) |
+| Hold S on the floor | Sink into the vinyl; let go to spring up (deeper dent = higher) |
+| Hold S while bouncing | Dig in and stop bouncing |
+| E | Pick up / put down light furniture and the key (the pointer chooses where it goes) |
 | R | Restart room |
 | Esc | Pause menu |
 
 ## Folder structure
 
 - `src/main.ts` - KAPLAY setup, title and "escaped" scenes
-- `src/game.ts` - the room scene: input, charge/aim, carrying, camera, HUD, pause menu
+- `src/game.ts` - the room scene: input, walking/jumping/springing, carrying, the key puzzle, camera, HUD, pause menu
 - `src/physics.ts` - small AABB physics with restitution (bouncy surfaces)
 - `src/level1.ts` - The Nursery layout and puzzle data
 - `src/castleArt.ts` - procedural vector art for the bouncy castle interior (rendered once to canvases)

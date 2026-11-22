@@ -1,6 +1,6 @@
 import type { Color, KAPLAYCtx } from "kaplay";
 import type { Palette } from "./config";
-import { CEIL_Y, FLOOR_Y, HATCH } from "./level1";
+import { CEIL_Y, CHANDELIER, FLOOR_Y, HATCH, KEY_HANG } from "./level1";
 import type { Rect } from "./physics";
 
 /**
@@ -29,7 +29,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		}
 	}
 
-	function hatch(t: number, open: boolean) {
+	function hatch(t: number, open: boolean, locked: boolean) {
 		const { x, y, w, h } = HATCH;
 		rect(x - 8, y - 8, w + 16, h + 8, pal.gold, { radius: [40, 40, 0, 0] });
 		rect(x, y, w, h, k.rgb(4, 3, 6), { radius: [34, 34, 0, 0] });
@@ -38,13 +38,34 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.drawRect({ pos: v(x + 8, y + 20), width: w - 16, height: h - 20, color: pal.moon, opacity: glow, radius: [28, 28, 0, 0] });
 		// Slide lip
 		k.drawPolygon({ pts: [v(x + 6, y + h), v(x + w - 6, y + h), v(x + w - 20, y + h - 30), v(x + 20, y + h - 30)], color: pal.yellow, opacity: 0.6 });
+		if (locked) {
+			// Chains across the opening and a heavy padlock
+			k.drawLine({ p1: v(x + 4, y + 30), p2: v(x + w - 4, y + 70), width: 3, color: pal.textDim, opacity: 0.8 });
+			k.drawLine({ p1: v(x + w - 4, y + 30), p2: v(x + 4, y + 70), width: 3, color: pal.textDim, opacity: 0.8 });
+			const lx = x + w / 2, ly = y + 52;
+			k.drawCircle({ pos: v(lx, ly - 8), radius: 9, fill: false, outline: { width: 3, color: pal.textDim } });
+			rect(lx - 12, ly - 6, 24, 20, pal.gold, { radius: 3 });
+			k.drawCircle({ pos: v(lx, ly + 2), radius: 3, color: k.BLACK });
+			rect(lx - 1, ly + 3, 2, 6, k.BLACK);
+		}
 	}
 
-	function chandelier(t: number) {
-		const ax = 900, ay = CEIL_Y;
-		const swing = Math.sin(t * 0.9) * 0.05;
-		const len = 150;
-		const cx = ax + Math.sin(swing) * len, cy = ay + Math.cos(swing) * len;
+	/** World position of the chandelier body for a given extra swing angle (radians). */
+	function chandelierPos(t: number, swing: number) {
+		const a = Math.sin(t * 0.9) * 0.05 + swing;
+		return v(CHANDELIER.x + Math.sin(a) * CHANDELIER.len, CEIL_Y + Math.cos(a) * CHANDELIER.len);
+	}
+
+	function chandelier(t: number, swing: number, hasKey: boolean) {
+		const ax = CHANDELIER.x, ay = CEIL_Y;
+		const { x: cx, y: cy } = chandelierPos(t, swing);
+		if (hasKey) {
+			// The key dangles on a ribbon below, catching the candlelight.
+			const kx = cx + KEY_HANG.dx, ky = cy + KEY_HANG.dy;
+			k.drawLine({ p1: v(cx, cy + 12), p2: v(kx, ky - 8), width: 2, color: pal.red });
+			drawItem(k, pal, "key", kx - 17, ky - 8, 34, 16);
+			k.drawCircle({ pos: v(kx + 10, ky - 4), radius: 2 + Math.abs(Math.sin(t * 3)) * 2, color: pal.flame, opacity: 0.7 });
+		}
 		k.drawLine({ p1: v(ax, ay), p2: v(cx, cy), width: 3, color: pal.gold });
 		k.drawEllipse({ pos: v(cx, cy + 10), radiusX: 70, radiusY: 14, color: pal.gold, fill: false, outline: { width: 4, color: pal.gold } });
 		k.drawCircle({ pos: v(cx, cy + 6), radius: 10, color: pal.gold });
@@ -104,7 +125,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.popTransform();
 	}
 
-	return { portrait, hatch, chandelier, shelf, bed, wardrobe, rockingHorse };
+	return { portrait, hatch, chandelier, chandelierPos, shelf, bed, wardrobe, rockingHorse };
 }
 
 export function drawItem(k: KAPLAYCtx, pal: Palette, kind: string, x: number, y: number, w: number, h: number, opacity = 1) {
@@ -121,6 +142,12 @@ export function drawItem(k: KAPLAYCtx, pal: Palette, kind: string, x: number, y:
 		k.drawRect({ pos: v(x + 4, y + 14), width: 8, height: h - 14, color: pal.woodDark, ...o });
 		k.drawRect({ pos: v(x + w - 12, y + 14), width: 8, height: h - 14, color: pal.woodDark, ...o });
 		k.drawRect({ pos: v(x + 8, y + h - 20), width: w - 16, height: 5, color: pal.woodDark, ...o });
+	} else if (kind === "key") {
+		// Ornate gold key: ring bow, shaft and teeth
+		k.drawCircle({ pos: v(x + 8, y + h / 2), radius: 7, fill: false, outline: { width: 3, color: pal.gold }, opacity });
+		k.drawRect({ pos: v(x + 14, y + h / 2 - 2), width: w - 14, height: 4, color: pal.gold, ...o });
+		k.drawRect({ pos: v(x + w - 9, y + h / 2 + 2), width: 4, height: 6, color: pal.gold, ...o });
+		k.drawRect({ pos: v(x + w - 3, y + h / 2 + 2), width: 3, height: 4, color: pal.gold, ...o });
 	} else if (kind === "pillow") {
 		k.drawRect({ pos: v(x, y), width: w, height: h, color: pal.linen, radius: 10, ...o });
 		k.drawRect({ pos: v(x + 8, y + 6), width: w - 16, height: h - 12, color: pal.linenDark, radius: 6, opacity: 0.4 * opacity });

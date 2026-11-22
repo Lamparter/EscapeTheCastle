@@ -33,6 +33,23 @@ function makeVignette(): string {
 }
 k.loadSprite("vignette", makeVignette());
 
+/** Vertical fade that sinks the floor into darkness, where the monster lurks. */
+function makeFloorShade(): HTMLCanvasElement {
+	const c = document.createElement("canvas");
+	c.width = 4;
+	c.height = 256;
+	const ctx = c.getContext("2d")!;
+	const g = ctx.createLinearGradient(0, 0, 0, 256);
+	g.addColorStop(0, "rgba(0,0,0,0.25)");
+	g.addColorStop(0.12, "rgba(0,0,0,0.72)");
+	g.addColorStop(0.35, "rgba(0,0,0,0.94)");
+	g.addColorStop(1, "rgba(0,0,0,0.98)");
+	ctx.fillStyle = g;
+	ctx.fillRect(0, 0, 4, 256);
+	return c;
+}
+k.loadSprite("floorShade", makeFloorShade());
+
 // The castle interior is procedural vector art rendered once to canvases.
 const castleLayout = {
 	w: ROOM.w, h: ROOM.h, floorY: FLOOR_Y, ceilY: CEIL_Y, wallL: WALL_L, wallR: WALL_R,
