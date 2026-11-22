@@ -18,7 +18,7 @@ MODELS = ROOT / "art" / "source" / "polyhaven"
 TEXTURES = ROOT / "art" / "source" / "textures"
 IMAGES = ROOT / "art" / "source" / "images"
 GAME_TEXTURES = ROOT / "public" / "textures"
-UA = {"User-Agent": "EscapeTheCastle-asset-fetch"}
+UA = {"User-Agent": "EscapeHollybankManor-asset-fetch"}
 RES = "1k"
 
 

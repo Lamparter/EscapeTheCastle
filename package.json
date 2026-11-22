@@ -1,5 +1,5 @@
 {
-	"name": "EscapeTheCastle",
+	"name": "escape-hollybank-manor",
 	"type": "module",
 	"scripts": {
 		"build": "vite build",

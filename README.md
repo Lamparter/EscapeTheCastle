@@ -1,4 +1,4 @@
-# Escape The Castle
+# Escape Hollybank Manor
 
 A horror game inside a bouncy Victorian dollhouse. Low gravity, a very bouncy floor and something lurking under the floorboards: bounce your way out of each room.
 This is the first mock-up: Room I (The Nursery, the tutorial).
