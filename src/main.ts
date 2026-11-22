@@ -76,7 +76,7 @@ k.load((async () => {
 	const img = new Image();
 	img.src = SPRITES.monster.file;
 	await img.decode();
-	const pad = 60;
+	const pad = 60; // keep in sync with MONSTER_GLOW_PAD in game.ts
 	const c = document.createElement("canvas");
 	c.width = img.width + pad * 2;
 	c.height = img.height + pad * 2;

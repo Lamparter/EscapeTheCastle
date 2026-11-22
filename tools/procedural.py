@@ -388,51 +388,6 @@ def build_hatch(cfg, **_):
     return _finish({"frame": frame, "lock": lock})
 
 
-def build_child(cfg, **_):
-    porcelain = _material("Porcelain", (0.88, 0.78, 0.72), rough=0.3, sss=0.25, coat=0.35)
-    cheek = _material("Cheek", (0.82, 0.48, 0.46), rough=0.4, sss=0.2)
-    gown = photo("Gown", "rough_linen", tint=(1.45, 1.42, 1.36), scale=9)
-    lace = photo("Lace", "rough_linen", tint=(1.6, 1.57, 1.5), scale=20)
-    hair = photo("ChildHair", "curly_teddy_natural", tint=(0.42, 0.26, 0.16), scale=14)
-    shoes = photo("Shoes", "brown_leather", tint=(0.25, 0.22, 0.22), scale=20, coat=0.8)
-    eye = _material("DollEye", (0.03, 0.025, 0.03), rough=0.04, coat=1.0)
-    white = _material("EyeWhite", (0.85, 0.83, 0.8), rough=0.2, coat=0.6)
-    lips = _material("Lips", (0.55, 0.14, 0.15), rough=0.35)
-    body = []
-    for x in (-0.045, 0.045):
-        body.append(sphere((x, -0.025, 0.022), (1.0, 1.6, 0.7), 0.03, shoes))
-    # Nightgown: a flared bell blended from metaballs so it reads as soft cloth
-    body.append(blob([
-        ("capsule", (0, 0, 0.12), (0, 0, 0.35), 0.1),
-        ("ellipsoid", (0, 0, 0.1), 0.19, (1.0, 0.85, 0.5)),
-        ("ellipsoid", (0, 0, 0.22), 0.15, (1.0, 0.85, 0.75)),
-        ("ellipsoid", (0, 0, 0.33), 0.11, (1.25, 0.8, 0.6)),
-    ], gown))
-    body.append(torus((0, 0, 0.055), 0.122, 0.015, lace))
-    body.append(torus((0, 0, 0.37), 0.052, 0.013, lace))
-    for side in (-1, 1):
-        body.append(blob([("capsule", (side * 0.07, 0, 0.34), (side * 0.11, -0.03, 0.21), 0.05)], gown))
-        body.append(sphere((side * 0.112, -0.035, 0.19), (1, 1, 1.2), 0.024, porcelain))
-    # Head: a big porcelain-doll head sitting right on the collar
-    body.append(sphere((0, 0, 0.47), (1, 1, 1.05), 0.11, porcelain))
-    # Hair: bob cap, fringe and side curtains
-    body.append(sphere((0, 0.03, 0.49), (1.08, 1.0, 1.04), 0.112, hair))
-    body.append(sphere((0, -0.068, 0.545), (1.15, 0.5, 0.42), 0.075, hair))
-    for side in (-1, 1):
-        body.append(sphere((side * 0.088, 0.0, 0.43), (0.45, 0.85, 1.15), 0.065, hair))
-    for side in (-1, 1):
-        body.append(sphere((side * 0.055, -0.093, 0.435), (1, 0.4, 0.7), 0.018, cheek))
-    body.append(sphere((0, -0.108, 0.41), (1.3, 0.5, 0.6), 0.009, lips))
-    # Big glassy doll eyes (whites + dark irises); the blink pass swaps them for closed lids
-    eyes, lids = [], []
-    for side in (-1, 1):
-        eyes.append(sphere((side * 0.038, -0.093, 0.47), (1, 0.6, 1.15), 0.024, white))
-        eyes.append(sphere((side * 0.038, -0.105, 0.468), (1, 0.5, 1.1), 0.016, eye))
-        lids.append(sphere((side * 0.038, -0.094, 0.47), (1.05, 0.62, 1.2), 0.025, porcelain))
-        lids.append(limb((side * 0.038 - 0.02, -0.11, 0.465), (side * 0.038 + 0.02, -0.11, 0.465), 0.0025, eye))
-    return _finish({"body": body, "eyes": eyes, "lids": lids})
-
-
 def build_painting(cfg, import_model, render_still, **_):
     """Render the marble bust as a dark old oil portrait, then put it on the gilt frame's canvas."""
     scene = bpy.context.scene
@@ -676,126 +631,62 @@ def build_room(cfg, **_):
     return root, shell + floor, {"shell": shell, "floor": floor}
 
 
-# ---------------------------------------------------------------- gothic doll (cut-out rig)
 
-
-def build_gothic_doll(cfg, **_):
-    """A Victorian Gothic porcelain doll, built as separate parts so the game can animate it as a
-    cut-out rig: each part renders to its own layer (same camera), and the joint positions
-    ("_pivots" empties) are projected into sprite coordinates by the render script.
-    The doll faces -Y; the render's yaw turns her towards screen-right. Her right side (-X) ends up
-    nearest the camera, so -X limbs are the "front" layers."""
-    porcelain = _material("DollPorcelain", (0.9, 0.86, 0.82), rough=0.22, sss=0.2, coat=0.6)
-    blush = _material("DollBlush", (0.84, 0.72, 0.72), rough=0.3, sss=0.2, coat=0.5)
-    velvet = photo("DollVelvet", "velour_velvet", scale=10, mix_color=((0.012, 0.01, 0.016), 0.95))
-    satin = photo("DollSatin", "crepe_satin", scale=12, coat=0.5, mix_color=((0.01, 0.008, 0.014), 0.95))
-    lace = photo("DollLace", "rough_linen", tint=(1.25, 1.22, 1.18), scale=26)
-    hair = photo("DollHair", "curly_teddy_natural", scale=16, coat=0.1, mix_color=((0.008, 0.007, 0.009), 0.96))
-    boots = photo("DollBoots", "brown_leather", scale=22, coat=0.8, mix_color=((0.02, 0.018, 0.02), 0.8))
-    stocking = photo("DollStocking", "velour_velvet", scale=30, mix_color=((0.015, 0.015, 0.02), 0.9))
-    glass = _material("DollEyeGlass", (0.08, 0.1, 0.13), rough=0.03, coat=1.0)
-    pupil = _material("DollPupil", (0.01, 0.01, 0.012), rough=0.03, coat=1.0)
-    white = _material("DollEyeWhite", (0.86, 0.85, 0.83), rough=0.15, coat=0.8)
-    lips = _material("DollLips", (0.35, 0.05, 0.08), rough=0.3, coat=0.6)
-    crack = _material("DollCrack", (0.12, 0.1, 0.1), rough=0.6)
-    garnet = _material("DollGarnet", (0.4, 0.02, 0.05), rough=0.08, coat=1.0)
-    gold = photo("DollGold", "metal_plate", mix_color=BRASS, scale=40, metal=0.6, rough=0.3)
-
-    parts = {k: [] for k in ("hair", "leg_back", "leg_front", "skirt", "torso", "arm_back", "arm_front", "head", "eyes", "lids")}
-    hip_z, waist_z, shoulder_z, neck_z = 0.2, 0.31, 0.37, 0.405
-
-    # Legs: black stockings and buttoned boots peeking out under the skirt
-    for side, part in ((-1, "leg_front"), (1, "leg_back")):
-        x = side * 0.035
-        parts[part].append(limb((x, 0, hip_z), (x, -0.005, 0.05), 0.017, stocking))
-        parts[part].append(sphere((x, -0.022, 0.028), (0.9, 1.5, 0.75), 0.028, boots))
-        parts[part].append(limb((x, -0.002, 0.04), (x, -0.002, 0.085), 0.021, boots, r_end=0.019))
-
-    # Bell skirt of black velvet, layered with a satin underskirt and a lace hem
-    parts["skirt"].append(blob([
-        ("capsule", (0, 0, 0.16), (0, 0, waist_z), 0.075),
-        ("ellipsoid", (0, 0, 0.22), 0.135, (1.0, 0.82, 0.55)),
-    ], velvet))
-    # Lower flounce: a wider, ruffled tier
-    parts["skirt"].append(blob([("ellipsoid", (0, 0, 0.13), 0.175, (1.0, 0.82, 0.38))]
-                                + [("ball", (math.cos(a) * 0.115, math.sin(a) * 0.095, 0.105), 0.035) for a in [k * math.pi / 8 for k in range(16)]], velvet))
-    # White lace petticoat ruffles peeking out under the hem
-    parts["skirt"].append(blob([("ellipsoid", (0, 0, 0.1), 0.15, (1.0, 0.8, 0.3))], lace))
-
-    # Bodice, lace collar and a garnet brooch
-    parts["torso"].append(blob([
-        ("capsule", (0, 0, waist_z - 0.02), (0, 0, shoulder_z + 0.01), 0.055),
-        ("ellipsoid", (0, 0, shoulder_z - 0.005), 0.06, (1.25, 0.8, 0.55)),
-    ], velvet))
-    parts["torso"].append(torus((0, 0, neck_z - 0.012), 0.042, 0.013, lace))
-    parts["torso"].append(sphere((0, -0.045, neck_z - 0.03), (1, 0.6, 1.2), 0.011, garnet))
-    parts["torso"].append(torus((0, -0.045, neck_z - 0.03), 0.012, 0.003, gold, rot=(math.pi / 2, 0, 0)))
-
-    # Arms: velvet sleeves with lace cuffs and porcelain hands (pivot at the shoulder)
-    for side, part in ((-1, "arm_front"), (1, "arm_back")):
-        sx = side * 0.068
-        hand = (side * 0.085, -0.012, 0.215)
-        parts[part].append(blob([("capsule", (sx, 0, shoulder_z), (side * 0.08, -0.008, 0.25), 0.026),
-                                  ("ball", (sx * 1.05, 0, shoulder_z - 0.01), 0.05)], velvet))  # puffed sleeve
-        parts[part].append(torus((side * 0.081, -0.009, 0.245), 0.022, 0.008, lace))
-        parts[part].append(sphere(hand, (0.85, 0.75, 1.15), 0.02, porcelain))
-
-    # Hair behind: long black ringlets falling to the shoulder blades
-    for i, (x, y) in enumerate(((-0.085, 0.01), (-0.06, 0.05), (-0.02, 0.07), (0.02, 0.07), (0.06, 0.05), (0.085, 0.01))):
-        # Each ringlet is a hanging stack of curls, smaller towards the end
-        n = 7 + (i % 2)
-        for c in range(n):
-            f = c / (n - 1)
-            parts["hair"].append(sphere((x * (1 + 0.15 * f) + 0.006 * math.sin(c * 2.1), y, 0.46 - 0.025 * c), (1, 1, 0.85), 0.021 - 0.008 * f, hair))
-
-    # Head: big porcelain head, hair cap and fringe, a black lace headdress with a satin bow
-    head_z = 0.475
-    parts["head"].append(limb((0, 0, neck_z - 0.01), (0, 0, head_z - 0.06), 0.022, porcelain))
-    parts["head"].append(sphere((0, 0, head_z), (1, 0.98, 1.06), 0.088, porcelain))
-    parts["head"].append(sphere((0, 0.022, head_z + 0.018), (1.06, 1.0, 1.0), 0.09, hair))
-    parts["head"].append(sphere((0, -0.05, head_z + 0.06), (1.2, 0.55, 0.42), 0.062, hair))
+def build_gothic_skirt(cfg, **_):
+    """A flared, pleated bell skirt of black velvet with a satin waist ribbon and a white lace hem
+    ruffle, seen from the front: dressed over the photographed bisque doll by tools/cut_doll.py."""
+    velvet = photo("SkirtVelvet", "velour_velvet", scale=8, mix_color=((0.004, 0.004, 0.006), 0.985), rough=0.92)
+    satin = photo("SkirtSatin", "crepe_satin", scale=10, coat=0.5, mix_color=((0.01, 0.008, 0.014), 0.94))
+    lace = photo("SkirtLace", "rough_linen", tint=(1.1, 1.08, 1.05), scale=30, rough=0.9)
+    rings, segs = 28, 96
+    verts, faces = [], []
+    for i in range(rings + 1):
+        z = i / rings                      # 0 = hem, 1 = waist
+        flare = (1 - z) ** 2.4
+        base = 0.115 + 0.19 * flare + 0.03 * (1 - z)
+        for j in range(segs):
+            th = 2 * math.pi * j / segs
+            pleat = 1 + 0.07 * math.sin(14 * th) * (0.25 + flare)
+            verts.append((base * pleat * math.cos(th), base * pleat * math.sin(th) * 0.8, 0.06 + z * 0.4))
+    for i in range(rings):
+        for j in range(segs):
+            a, b = i * segs + j, i * segs + (j + 1) % segs
+            faces.append((a, b, b + segs, a + segs))
+    skirt = _mesh("Skirt", verts, faces, velvet)
+    _smooth(skirt, 1)
+    objs = [skirt]
+    # Lace ruffle peeking out under the hem (a pleated ring, slightly wider than the hem)
+    rv, rf = [], []
+    for i in range(4):
+        z = 0.03 + i * 0.012
+        for j in range(segs):
+            th = 2 * math.pi * j / segs
+            r = (0.31 + 0.01 * math.sin(28 * th)) * (1 + 0.025 * i)
+            rv.append((r * math.cos(th), r * math.sin(th) * 0.8, z))
+    for i in range(3):
+        for j in range(segs):
+            a, b = i * segs + j, i * segs + (j + 1) % segs
+            rf.append((a, b, b + segs, a + segs))
+    ruffle = _mesh("Ruffle", rv, rf, lace)
+    _smooth(ruffle, 1)
+    objs.append(ruffle)
+    # Satin ribbon at the waist, with a bow at the front
+    band = torus((0, 0, 0.46), 0.112, 0.012, satin)
+    band.scale = (1, 0.8, 1)
+    objs.append(band)
     for side in (-1, 1):
-        parts["head"].append(sphere((side * 0.075, 0.0, head_z - 0.03), (0.42, 0.8, 1.2), 0.05, hair))
-        parts["head"].append(sphere((side * 0.045, -0.078, head_z - 0.035), (1, 0.4, 0.7), 0.015, blush))
-    # A big black satin bow on top of the head, with trailing ribbons
-    for side in (-1, 1):
-        parts["head"].append(sphere((side * 0.045, 0.0, head_z + 0.1), (1.1, 0.45, 0.75), 0.04, satin, rot=(0, side * 0.35, 0)))
-    parts["head"].append(sphere((0, -0.01, head_z + 0.097), (1, 1, 1), 0.016, satin))
-    for side in (-1, 1):
-        parts["head"].append(limb((side * 0.01, 0.01, head_z + 0.09), (side * 0.06, 0.05, head_z + 0.02), 0.006, satin))
-    parts["head"].append(sphere((0, -0.088, head_z - 0.06), (1.3, 0.5, 0.55), 0.008, lips))
-    # A hairline crack in the porcelain
-    parts["head"].append(tube_path([(-0.02, -0.085, head_z + 0.02), (-0.03, -0.086, head_z - 0.005), (-0.024, -0.087, head_z - 0.03), (-0.035, -0.084, head_z - 0.05)], 0.0012, crack))
-    # Big glass eyes; the blink layer swaps them for closed porcelain lids with dark lashes
-    for side in (-1, 1):
-        ex = side * 0.032
-        parts["eyes"].append(sphere((ex, -0.074, head_z - 0.005), (1, 0.6, 1.1), 0.022, white))
-        parts["eyes"].append(sphere((ex, -0.085, head_z - 0.006), (1, 0.45, 1.05), 0.0185, glass))
-        parts["eyes"].append(sphere((ex, -0.091, head_z - 0.006), (1, 0.4, 1), 0.009, pupil))
-        parts["lids"].append(sphere((ex, -0.075, head_z - 0.005), (1.05, 0.62, 1.15), 0.0232, porcelain))
-        parts["lids"].append(limb((ex - 0.02, -0.092, head_z - 0.012), (ex + 0.02, -0.092, head_z - 0.012), 0.0025, pupil))
-
-    root, meshes, parts = _finish(parts)
-    # Joint markers, moved with the model; the render script projects them into sprite coordinates.
-    pivots = []
-    for name, loc in (("neck", (0, 0, neck_z)), ("shoulder_front", (-0.068, 0, shoulder_z)), ("shoulder_back", (0.068, 0, shoulder_z)),
-                      ("hip_front", (-0.035, 0, hip_z)), ("hip_back", (0.035, 0, hip_z)), ("waist", (0, 0, waist_z)), ("feet", (0, 0, 0))):
-        e = bpy.data.objects.new(f"pivot:{name}", None)
-        bpy.context.scene.collection.objects.link(e)
-        e.parent = root
-        e.location = loc
-        pivots.append(e)
-    parts["_pivots"] = pivots
-    return root, meshes, parts
+        objs.append(sphere((side * 0.03, -0.095, 0.455), (1.1, 0.45, 0.7), 0.026, satin))
+        objs.append(limb((side * 0.008, -0.095, 0.45), (side * 0.03, -0.1, 0.37), 0.006, satin))
+    objs.append(sphere((0, -0.098, 0.455), (1, 1, 1), 0.011, satin))
+    return _finish({"skirt": objs})
 
 
 BUILDERS = {
-    "gothic_doll": build_gothic_doll,
+    "gothic_skirt": build_gothic_skirt,
     "room": build_room,
     "shelf": build_shelf,
     "key": build_key,
     "rocking_horse": build_rocking_horse,
     "hatch": build_hatch,
-    "child": build_child,
     "painting": build_painting,
 }

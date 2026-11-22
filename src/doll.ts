@@ -3,14 +3,13 @@ import { spriteKey } from "./sprites";
 import { SPRITES, type SpriteName } from "./sprites.generated";
 
 /**
- * The player: a Victorian Gothic porcelain doll, animated as a cut-out rig.
+ * The player: a real Victorian bisque doll (Rijksmuseum BK-1972-141, CC0), cut into parts and made
+ * Gothic (black curls, black dress and stockings, a pleated black velvet skirt), animated as a
+ * cut-out rig. See tools/cut_doll.py. Every part is a photo layer of the same size; each one is
+ * rotated about its joint, and the whole body is squashed, stretched, leaned and spun.
  *
- * Each body part is its own photoreal render layer (all the same size and alignment), and the
- * render script exported the joint positions. Here every part is rotated about its joint, and the
- * whole body is squashed, stretched, leaned and spun, all as transforms on the images.
- *
- * Angles are in degrees, clockwise on screen, for the doll facing right (mirrored when facing left).
- * A limb hanging down at 0 swings forward at negative angles and backwards at positive ones.
+ * She faces the viewer, so limbs move like a marionette's: "out" angles raise both arms (or legs)
+ * outwards, mirrored; "swing" angles sway them together. Degrees, clockwise on screen.
  */
 
 export interface DollInput {
@@ -25,15 +24,15 @@ export interface DollInput {
 }
 
 type Pose = {
-	armFront: number; armBack: number;
-	legFront: number; legBack: number;
+	armOut: number; armSwing: number;
+	legOut: number; legSwing: number; walk: number;
 	head: number; skirt: number; lean: number;
 	bob: number; sx: number; sy: number; skirtSx: number; skirtSy: number;
 };
 
-const REST: Pose = { armFront: 0, armBack: 0, legFront: 0, legBack: 0, head: 0, skirt: 0, lean: 0, bob: 0, sx: 1, sy: 1, skirtSx: 1, skirtSy: 1 };
+const REST: Pose = { armOut: 0, armSwing: 0, legOut: 0, legSwing: 0, walk: 0, head: 0, skirt: 0, lean: 0, bob: 0, sx: 1, sy: 1, skirtSx: 1, skirtSy: 1 };
 
-const P = SPRITES.doll.pivots;
+const P = SPRITES.pdoll.pivots;
 
 export function makeDoll(k: KAPLAYCtx) {
 	const pose: Pose = { ...REST };
@@ -43,17 +42,16 @@ export function makeDoll(k: KAPLAYCtx) {
 	let stretch = 0;      // take-off stretch, decays
 	let spin = 0;         // double-jump twirl progress (1 -> 0)
 	let twitch = 0;       // creepy head twitch, decays
+	let twitchDir = 1;
 	let nextTwitch = 4 + Math.random() * 5;
-	let nextBlink = 2 + Math.random() * 3;
-	let blink = 0;
 
 	const ease = (cur: number, target: number, rate: number, dt: number) => cur + (target - cur) * Math.min(1, rate * dt);
 
 	return {
-		/** A hard landing: squash, and the sleep-eyes clack shut for a moment. */
+		/** A hard landing: squash, and her head jolts. */
 		land(speed: number) {
 			squash = Math.max(squash, Math.min(1, speed / 700));
-			if (speed > 450) blink = 0.18;
+			if (speed > 500) { twitch = Math.max(twitch, 0.6); twitchDir = Math.random() < 0.5 ? -1 : 1; }
 		},
 		jump(strength: number) { stretch = Math.max(stretch, 0.4 + strength * 0.6); },
 		twirl() { spin = 1; },
@@ -64,69 +62,65 @@ export function makeDoll(k: KAPLAYCtx) {
 			stretch = Math.max(0, stretch - dt * 4);
 			spin = Math.max(0, spin - dt / 0.38);
 			twitch = Math.max(0, twitch - dt * 2.2);
-			blink = Math.max(0, blink - dt);
-			nextBlink -= dt;
-			if (nextBlink <= 0) { blink = 0.13; nextBlink = 2.5 + Math.random() * 3.5; }
 			nextTwitch -= dt;
-			if (nextTwitch <= 0 && s.grounded) { twitch = 1; nextTwitch = 5 + Math.random() * 6; }
+			if (nextTwitch <= 0 && s.grounded) { twitch = 1; twitchDir = Math.random() < 0.5 ? -1 : 1; nextTwitch = 5 + Math.random() * 6; }
 
 			const target: Pose = { ...REST };
 			const breath = Math.sin(t * 2.3);
 			if (s.grounded) {
 				if (s.walking) {
-					walkPhase += dt * 10;
+					// A stiff, waddling doll walk: rock side to side, lift each leg in turn, arms swaying
+					walkPhase += dt * 9;
 					const w = Math.sin(walkPhase);
-					target.armFront = 24 * w;
-					target.armBack = -24 * w;
-					target.legFront = -20 * w;
-					target.legBack = 20 * w;
-					target.bob = -Math.abs(Math.cos(walkPhase)) * 2.6;
-					target.skirt = 3 * Math.sin(walkPhase * 2);
-					target.head = 2.5 * w;
-					target.lean = 4;
+					target.walk = 1;
+					target.armOut = 7;
+					target.armSwing = 16 * w;
+					target.legSwing = 6 * w;
+					target.lean = 5 * w + 3;
+					target.bob = -Math.abs(Math.cos(walkPhase)) * 3;
+					target.skirt = -4 * w;
+					target.head = -3 * w;
 				} else {
-					// Idle: breathing, a slow sway, and the head drifting to one side
-					target.armFront = 3 * Math.sin(t * 1.3);
-					target.armBack = -3 * Math.sin(t * 1.3 + 0.6);
+					// Idle: breathing, a slow sway, the head drifting to one side
+					target.armOut = 3 + 2 * Math.sin(t * 1.3);
+					target.armSwing = 2 * Math.sin(t * 0.8);
 					target.bob = breath * 0.6;
-					target.head = 4 * Math.sin(t * 0.55) - 3;
-					target.skirt = 1.2 * Math.sin(t * 0.9);
+					target.head = 5 * Math.sin(t * 0.55) - 4;
+					target.skirt = 1.5 * Math.sin(t * 0.9);
 				}
 				if (s.sink > 0) {
-					// Digging into the vinyl: crouch down, arms out for balance
+					// Digging into the vinyl: crouch, arms out for balance
 					target.sy = 1 - 0.3 * s.sink;
 					target.sx = 1 + 0.16 * s.sink;
-					target.armFront = -55 * s.sink;
-					target.armBack = 50 * s.sink;
-					target.head = 8 * s.sink;
-					target.skirtSx = 1 + 0.12 * s.sink;
+					target.armOut = 60 * s.sink;
+					target.legOut = 8 * s.sink;
+					target.head = 6 * s.sink;
+					target.skirtSx = 1 + 0.15 * s.sink;
 				}
 			} else if (s.vy < 0) {
-				// Rising: arms reach up, legs tuck, the skirt flares
-				target.armFront = -150;
-				target.armBack = -125;
-				target.legFront = -25;
-				target.legBack = 18;
-				target.skirtSx = 1.1;
+				// Rising: arms flung up, legs together, skirt flaring
+				target.armOut = 150;
+				target.legOut = -4;
+				target.skirtSx = 1.12;
 				target.skirtSy = 0.92;
-				target.head = -6;
+				target.head = -4;
 				target.lean = Math.max(-14, Math.min(14, s.vx * 0.04));
 			} else {
-				// Falling: arms flail above the head, the skirt billows up
+				// Falling: arms flailing overhead, legs kicking, the skirt billowing up
 				const flail = Math.sin(t * 19);
-				target.armFront = -165 + 14 * flail;
-				target.armBack = -140 - 14 * flail;
-				target.legFront = 12 + 8 * Math.sin(t * 14);
-				target.legBack = -10 - 8 * Math.sin(t * 14);
-				target.skirtSx = 1.16;
-				target.skirtSy = 0.86;
+				target.armOut = 160 + 12 * flail;
+				target.armSwing = 10 * Math.sin(t * 13);
+				target.legOut = 12;
+				target.legSwing = 10 * Math.sin(t * 15);
+				target.skirtSx = 1.2;
+				target.skirtSy = 0.84;
 				target.head = 8;
 				target.lean = Math.max(-14, Math.min(14, s.vx * 0.04));
 			}
 			if (s.carrying) {
-				// Holding the item up over her head with both hands
-				target.armFront = -172 + 3 * breath;
-				target.armBack = -160 + 3 * breath;
+				// Holding the item up over her head
+				target.armOut = 168 + 3 * breath;
+				target.armSwing = 0;
 			}
 
 			const r = s.grounded ? 14 : 10;
@@ -135,17 +129,18 @@ export function makeDoll(k: KAPLAYCtx) {
 
 		/** Draw with the feet at (x, feetY). */
 		draw(x: number, feetY: number, facing: number, opacity = 1) {
-			const s = SPRITES.doll;
-			const sq = squash, st = stretch;
-			const sx = pose.sx * (1 + 0.22 * sq - 0.15 * st);
-			const sy = pose.sy * (1 - 0.26 * sq + 0.24 * st);
+			const s = SPRITES.pdoll;
+			const sx = pose.sx * (1 + 0.22 * squash - 0.15 * stretch);
+			const sy = pose.sy * (1 - 0.26 * squash + 0.24 * stretch);
 			const twirl = spin > 0 ? Math.cos((1 - spin) * Math.PI * 2) : 1;
-			const headTwitch = twitch > 0 ? 17 * Math.sin(Math.min(1, (1 - twitch) * 6) * Math.PI / 2) * twitch : 0;
-			const eyesShut = blink > 0 || twitch > 0.85;
+			const headTwitch = twitch > 0 ? 18 * twitchDir * Math.sin(Math.min(1, (1 - twitch) * 6) * Math.PI / 2) * twitch : 0;
+			// Walking: each leg lifts in turn
+			const lift = 3.5 * pose.walk;
+			const liftL = -Math.max(0, Math.sin(walkPhase)) * lift, liftR = -Math.max(0, -Math.sin(walkPhase)) * lift;
 
-			const part = (name: SpriteName, pivot: readonly number[], angle: number, scaleX = 1, scaleY = 1) => {
+			const part = (name: SpriteName, pivot: readonly number[], angle: number, dy = 0, scaleX = 1, scaleY = 1) => {
 				k.pushTransform();
-				k.pushTranslate(pivot[0], pivot[1]);
+				k.pushTranslate(pivot[0], pivot[1] + dy);
 				if (angle) k.pushRotate(angle);
 				if (scaleX !== 1 || scaleY !== 1) k.pushScale(scaleX, scaleY);
 				k.pushTranslate(-pivot[0], -pivot[1]);
@@ -159,15 +154,14 @@ export function makeDoll(k: KAPLAYCtx) {
 			k.pushRotate(pose.lean);
 			k.pushScale(sx, sy);
 			k.pushTranslate(-P.feet[0], -P.feet[1] + pose.bob);
-			// Back to front: far ringlets, far arm, legs, skirt, bodice, head, near arm
-			part("doll_hair", P.neck, pose.head * 0.5 + headTwitch * 0.4);
-			part("doll_arm_back", P.shoulder_back, pose.armBack);
-			part("doll_leg_back", P.hip_back, pose.legBack);
-			part("doll_leg_front", P.hip_front, pose.legFront);
-			part("doll_skirt", P.waist, pose.skirt, pose.skirtSx, pose.skirtSy);
-			part("doll_torso", P.waist, pose.skirt * 0.3);
-			part(eyesShut ? "doll_head_blink" : "doll_head", P.neck, pose.head + headTwitch);
-			part("doll_arm_front", P.shoulder_front, pose.armFront);
+			// Back to front: legs, body (bodice), skirt, head, arms
+			part("pdoll_leg_l", P.hip_l, pose.legOut + pose.legSwing, liftL);
+			part("pdoll_leg_r", P.hip_r, -pose.legOut + pose.legSwing, liftR);
+			part("pdoll_body", P.waist, pose.skirt * 0.25);
+			part("pdoll_skirt", P.waist, pose.skirt, 0, pose.skirtSx, pose.skirtSy);
+			part("pdoll_head", P.neck, pose.head + headTwitch);
+			part("pdoll_arm_l", P.shoulder_l, pose.armOut + pose.armSwing);
+			part("pdoll_arm_r", P.shoulder_r, -pose.armOut + pose.armSwing);
 			k.popTransform();
 		},
 	};

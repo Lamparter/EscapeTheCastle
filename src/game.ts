@@ -111,6 +111,8 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		let anger = 0;
 		let monsterPulse = 0;
 		/** The monster: fades in and out somewhere in the darkness beyond the vignette's light. */
+		const MONSTER_EYES = [{ x: 0.244, y: 0.21 }, { x: 0.482, y: 0.213 }];
+		const MONSTER_GLOW_PAD = 60;
 		const ghost = { a: 0, state: "hidden" as "hidden" | "in" | "hold" | "out", t: 6 + Math.random() * 6, x: 0, y: 0, flip: 1 };
 		const doll = makeDoll(k);
 		let flickerT = 6 + Math.random() * 6;
@@ -664,17 +666,21 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				const mw = m.w * u * 1.05 * breathe, mh = m.h * u * 1.05 * breathe;
 				const jitter = anger > 0.5 ? Math.sin(t * 31) * 1.2 * u : 0;
 				const strength = (0.45 + 0.5 * Math.min(1, anger + 0.2) + monsterPulse * 0.2) * ghost.a;
-				const eyes = [gs.add(v(-0.12 * mw * ghost.flip, -0.22 * mh)), gs.add(v(0.11 * mw * ghost.flip, -0.22 * mh))];
+				// Eye centres measured on the monster render (fractions of its width/height).
+				const eyes = MONSTER_EYES.map((e) => gs.add(v((e.x - 0.5) * mw * ghost.flip + jitter, (e.y - 0.5) * mh)));
+				// The blurred glow copy has MONSTER_GLOW_PAD px of padding around the same image: scale it to match.
+				const gpx = m.w * 3, gpy = m.h * 3;
+				const gw = mw * (gpx + 2 * MONSTER_GLOW_PAD) / gpx, gh = mh * (gpy + 2 * MONSTER_GLOW_PAD) / gpy;
 				if (ghost.a > 0.01) {
-					k.drawSprite({ sprite: "monster_glow", pos: gs.add(v(jitter, 0)), width: mw * 1.6, height: mh * 1.6, anchor: "center", color: green, opacity: strength * 0.75, flipX: ghost.flip < 0 });
+					k.drawSprite({ sprite: "monster_glow", pos: gs.add(v(jitter, 0)), width: gw, height: gh, anchor: "center", color: green, opacity: strength * 0.75, flipX: ghost.flip < 0 });
 					k.drawSprite({ sprite: spriteKey("monster"), pos: gs.add(v(jitter, 0)), width: mw, height: mh, anchor: "center", color: green, opacity: strength * 0.32, flipX: ghost.flip < 0 });
-					for (const e of eyes) glow(k, e, 13 * u, green, strength * (0.5 + 0.5 * Math.sin(t * 3) ** 2));
+					for (const e of eyes) glow(k, e, 7 * u, green, strength * (0.55 + 0.45 * Math.sin(t * 3) ** 2));
 				}
 
 				if (blackout > 0) {
 					ui.shade(0, 0, W, H, 0.94);
 					// ...but its eyes still glow, wherever it is.
-					for (const e of eyes) glow(k, e, 14 * u, green, 0.9);
+					for (const e of eyes) glow(k, e, 8 * u, green, 0.9);
 				}
 
 				drawHud(W, H, u);

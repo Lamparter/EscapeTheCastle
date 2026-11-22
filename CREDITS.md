@@ -14,11 +14,12 @@ All from [Poly Haven](https://polyhaven.com), released under CC0 (public domain)
 - [Fancy Picture Frame 02](https://polyhaven.com/a/fancy_picture_frame_02) by Rob Tuytel and Rico Cilliers (the portrait's frame)
 - [Marble Bust 01](https://polyhaven.com/a/marble_bust_01) by Rico Cilliers (re-rendered as the portrait's sitter)
 
-The room, the Gothic doll (player), key, rocking horse, slide hatch and wall shelf are modelled procedurally for this game (`tools/procedural.py`) and textured with the photo textures below.
+The room, the doll's skirt, key, rocking horse, slide hatch and wall shelf are modelled procedurally for this game (`tools/procedural.py`) and textured with the photo textures below.
 
 ## Images
 
 - Wallpaper: May Morris for Morris & Co., [Honeysuckle](https://collection.cooperhewitt.org/view/objects/asitem/id/176339) sidewall (1883), Cooper Hewitt, Smithsonian Design Museum, CC0
+- The player doll: [Doll with bisque head and forearms, glass sleep-eyes and blonde curls of real hair](https://commons.wikimedia.org/wiki/File:Pop_met_hoofd_en_onderarmen_van_biscuit,_bruine_slaapogen_van_glas_en_blonde_krullen_van_echt_haar._BK-1972-141.jpg), Rijksmuseum, Amsterdam (BK-1972-141), CC0 (via Wikimedia Commons). Cut into parts, recoloured and dressed in a rendered velvet skirt for the game.
 - Night sky through the windows: [Moonlit Golf](https://polyhaven.com/a/moonlit_golf) by Greg Zaal, Poly Haven (CC0)
 
 ## Photo textures
