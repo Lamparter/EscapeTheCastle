@@ -1,11 +1,87 @@
 import kaplay from "kaplay";
-// import "kaplay/global"; // uncomment if you want to use without the k. prefix
+import { FONT, VIEW_HEIGHT, makePalette } from "./config";
+import { registerGameScene } from "./game";
 
-const k = kaplay();
+const k = kaplay({
+	background: [6, 5, 9],
+	font: FONT,
+	pixelDensity: Math.min(2, window.devicePixelRatio || 1),
+	letterbox: false,
+	global: false,
+});
 
-k.loadRoot("./"); // A good idea for Itch.io publishing later
-k.loadSprite("bean", "sprites/bean.png");
+k.loadRoot("./"); // relative paths, needed for itch.io
 
-k.add([k.pos(120, 80), k.sprite("bean")]);
+/** Radial-gradient vignette, generated at runtime (no image asset needed). */
+function makeVignette(): string {
+	const size = 512;
+	const c = document.createElement("canvas");
+	c.width = c.height = size;
+	const ctx = c.getContext("2d")!;
+	const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+	// The sprite is drawn 5x screen height, so radius 1.0 = 2.5 screen heights.
+	g.addColorStop(0, "rgba(0,0,0,0)");
+	g.addColorStop(0.08, "rgba(0,0,0,0.05)");
+	g.addColorStop(0.17, "rgba(0,0,0,0.6)");
+	g.addColorStop(0.26, "rgba(0,0,0,0.93)");
+	g.addColorStop(1, "rgba(0,0,0,0.97)");
+	ctx.fillStyle = g;
+	ctx.fillRect(0, 0, size, size);
+	return c.toDataURL();
+}
+k.loadSprite("vignette", makeVignette());
 
-k.onClick(() => k.addKaboom(k.mousePos()));
+const pal = makePalette(k);
+registerGameScene(k, pal);
+
+function stripes() {
+	const W = k.width(), H = k.height();
+	const n = Math.ceil(W / 80) + 1;
+	for (let i = 0; i < n; i++) {
+		k.drawRect({ pos: k.vec2(i * 80, 0), width: 80, height: H, color: i % 2 ? pal.redDark : pal.yellowDark });
+	}
+	k.drawSprite({ sprite: "vignette", pos: k.vec2(W / 2, H / 2), width: H * 5, height: H * 5, anchor: "center" });
+}
+
+k.scene("title", () => {
+	k.setCursor("default");
+	let t = 0;
+	k.onUpdate(() => { t += k.dt(); });
+	k.add([k.fixed(), {
+		id: "title",
+		draw() {
+			const W = k.width(), H = k.height(), u = H / VIEW_HEIGHT;
+			stripes();
+			k.drawText({ text: "Escape The Castle", pos: k.vec2(W / 2, H * 0.38), size: 64 * u, color: pal.text, anchor: "center", font: FONT });
+			k.drawText({ text: "a horror game inside a bouncy castle", pos: k.vec2(W / 2, H * 0.38 + 50 * u), size: 18 * u, color: pal.textDim, anchor: "center", font: FONT });
+			k.drawText({ text: "Click or press Space to begin", pos: k.vec2(W / 2, H * 0.7), size: 18 * u, color: pal.text, anchor: "center", font: FONT, opacity: 0.5 + 0.4 * Math.sin(t * 3) });
+		},
+	}]);
+	const start = () => k.go("game");
+	k.onMousePress("left", start);
+	k.onKeyPress(["space", "enter"], start);
+});
+
+k.scene("escaped", ({ time }: { time: number }) => {
+	k.setCursor("default");
+	const secs = Math.floor(time);
+	const timeStr = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+	k.add([k.fixed(), {
+		id: "escaped",
+		draw() {
+			const W = k.width(), H = k.height(), u = H / VIEW_HEIGHT;
+			k.drawRect({ pos: k.vec2(0, 0), width: W, height: H, color: pal.void });
+			k.drawText({ text: "You slip down the slide into the dark...", pos: k.vec2(W / 2, H * 0.34), size: 30 * u, color: pal.text, anchor: "center", font: FONT });
+			k.drawText({ text: `The Nursery escaped in ${timeStr}`, pos: k.vec2(W / 2, H * 0.34 + 46 * u), size: 20 * u, color: time <= 60 ? pal.monster : pal.yellow, anchor: "center", font: FONT });
+			k.drawText({ text: "The next rooms are still being built.", pos: k.vec2(W / 2, H * 0.55), size: 16 * u, color: pal.textDim, anchor: "center", font: FONT });
+			k.drawText({ text: "Click or press Space to play the Nursery again", pos: k.vec2(W / 2, H * 0.7), size: 18 * u, color: pal.text, anchor: "center", font: FONT });
+		},
+	}]);
+	const again = () => k.go("game");
+	k.wait(0.6, () => {
+		k.onMousePress("left", again);
+		k.onKeyPress(["space", "enter", "r"], again);
+	});
+});
+
+k.go("title");

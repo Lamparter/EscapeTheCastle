@@ -2,7 +2,11 @@
 	"compilerOptions": {
 		"noEmit": true,
 		"target": "esnext",
-		"moduleResolution": "node"
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"lib": ["esnext", "dom"],
+		"types": ["vite/client"],
+		"skipLibCheck": true
 	},
 	"include": [
 		"src/**/*.ts"
