@@ -24,6 +24,8 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/castleArt.ts` - procedural vector art for the bouncy castle interior (rendered once to canvases)
 - `src/draw.ts` - placeholder furniture/character art drawn with shapes (to be replaced by hand-drawn sprites)
 - `src/config.ts` - tuning values and the colour palette
+- `src/sprites.generated.ts` - sizes of the rendered furniture sprites (generated)
+- `tools/` - model download and Blender sprite-render scripts
 
 ## Development
 
@@ -38,6 +40,17 @@ pnpm run check
 ```
 
 type-checks the project.
+
+## Sprites from 3D models
+
+Furniture sprites are rendered from CC0 [Poly Haven](https://polyhaven.com) models with Blender 5.2 (see `docs/ASSETS.md`):
+
+```sh
+python tools/fetch_polyhaven.py
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P tools/render_sprites.py
+```
+
+Pieces with no suitable free model (player, key, rocking horse, hatch) are built procedurally in `tools/procedural.py`. The first command downloads the models listed in `tools/sprites.json` into `art/source/` (git-ignored). The second renders them into `public/sprites/nursery/` with a shared camera, lighting and colour grade, and regenerates `src/sprites.generated.ts` (sprite sizes in game units). Add names after `--` to re-render only some sprites. Credits are in `CREDITS.md`.
 
 ## Distribution
 

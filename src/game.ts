@@ -492,8 +492,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				art.hatch(t, phase === "sliding", phase !== "sliding");
 				art.chandelier(t, swing, keyOnChandelier);
 				for (const f of FIXED) {
-					if (f.kind === "bed") art.bed(f);
-					else if (f.kind === "wardrobe") art.wardrobe(f);
+					if (f.art) art.placed(f.art);
 					else if (f.kind === "shelf") art.shelf(f);
 				}
 
@@ -530,7 +529,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				// Player (squashes as it sinks into the vinyl)
 				const py = player.y + sinkAt(player);
 				const slideFade = phase === "sliding" ? Math.max(0, 1 - slideT * 1.2) : 1;
-				if (slideFade > 0) drawPlayer(k, pal, player.x, py, player.hw, player.hh, player.vy + sink * 700, facing, t);
+				if (slideFade > 0) drawPlayer(k, player.x, py, player.hh, player.vy + sink * 700, facing, t);
 				if (carrying) {
 					const s = carrying.def.kind === "key" ? 1 : 0.7;
 					const cw = carrying.def.w * s, ch = carrying.def.h * s;

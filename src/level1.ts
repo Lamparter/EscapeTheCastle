@@ -1,4 +1,5 @@
 import type { Rect, Solid } from "./physics";
+import { SPRITES, type SpriteName } from "./sprites.generated";
 
 /**
  * Level 1 - The Nursery (tutorial).
@@ -15,19 +16,44 @@ export const WALL_L = 64;
 export const WALL_R = ROOM.w - 64;
 export const CEIL_Y = 84;
 
-export type FixedKind = "floor" | "wall" | "ceiling" | "bed" | "wardrobe" | "shelf";
+export type FixedKind = "floor" | "wall" | "ceiling" | "bed" | "wardrobe" | "shelf" | "nightstand";
+
+/** A rendered sprite placed in the room: left edge x and the floor line it stands on. */
+export interface SpriteArt {
+	sprite: SpriteName;
+	left: number;
+	bottom: number;
+}
 
 export interface FixedPiece extends Solid {
 	kind: FixedKind;
+	art?: SpriteArt;
 }
+
+// Furniture placement. Hitboxes follow the rendered sprites (tools/sprites.json).
+const BED_LEFT = 96;
+const WARDROBE_W = Math.round(SPRITES.wardrobe.w - 8);
+const WARDROBE_RIGHT = 1662;
+const NIGHTSTAND_LEFT = 470;
 
 export const FIXED: FixedPiece[] = [
 	{ id: "floor", kind: "floor", x: 0, y: FLOOR_Y, w: ROOM.w, h: ROOM.h - FLOOR_Y + 200, bounce: 0.86 },
 	{ id: "wallL", kind: "wall", x: -200, y: -200, w: WALL_L + 200, h: ROOM.h + 400, bounce: 0.82 },
 	{ id: "wallR", kind: "wall", x: WALL_R, y: -200, w: 200 + 64, h: ROOM.h + 400, bounce: 0.82 },
 	{ id: "ceiling", kind: "ceiling", x: 0, y: -200, w: ROOM.w, h: CEIL_Y + 200, bounce: 0.7 },
-	{ id: "bed", kind: "bed", x: 110, y: 600, w: 330, h: 100, bounce: 0.7 },
-	{ id: "wardrobe", kind: "wardrobe", x: 1480, y: 420, w: 160, h: 280, bounce: 0.3 },
+	// Only the mattress is solid; the carved head- and footboards are scenery you pass in front of.
+	{
+		id: "bed", kind: "bed", x: BED_LEFT + 14, y: FLOOR_Y - 70, w: Math.round(SPRITES.bed.w * 0.84), h: 70, bounce: 0.7,
+		art: { sprite: "bed", left: BED_LEFT, bottom: FLOOR_Y + 2 },
+	},
+	{
+		id: "wardrobe", kind: "wardrobe", x: WARDROBE_RIGHT - WARDROBE_W, y: FLOOR_Y - 280, w: WARDROBE_W, h: 280, bounce: 0.3,
+		art: { sprite: "wardrobe", left: WARDROBE_RIGHT - WARDROBE_W - 4, bottom: FLOOR_Y + 2 },
+	},
+	{
+		id: "nightstand", kind: "nightstand", x: NIGHTSTAND_LEFT + 4, y: FLOOR_Y - 76, w: Math.round(SPRITES.nightstand.w - 8), h: 76, bounce: 0.3,
+		art: { sprite: "nightstand", left: NIGHTSTAND_LEFT, bottom: FLOOR_Y + 2 },
+	},
 	{ id: "shelf", kind: "shelf", x: 1672, y: 250, w: WALL_R - 1672, h: 16, bounce: 0.3 },
 ];
 
@@ -48,24 +74,29 @@ export interface ItemDef {
 	bounceScale: number;
 	/** Not in the room until something releases it (the key on the chandelier). */
 	hidden?: boolean;
+	/** Rendered sprite (drawn bottom-centred on the hitbox); falls back to shape art. */
+	sprite?: SpriteName;
 }
 
+/** Hitbox for a sprite-backed item: the sprite minus its transparent render margin. */
+const fit = (s: SpriteName) => ({ w: Math.round(SPRITES[s].w - 3), h: Math.round(SPRITES[s].h - 2), sprite: s });
+
 export const ITEMS: ItemDef[] = [
-	{ id: "chest", kind: "chest", name: "toy chest", x: 990, w: 100, h: 110, restOn: FLOOR_Y, bounce: 0.3, carrySpeed: 0.72, bounceScale: 0.45 },
-	{ id: "stool", kind: "stool", name: "stool", x: 1260, w: 60, h: 56, restOn: FLOOR_Y, bounce: 0.35, carrySpeed: 0.85, bounceScale: 0.6 },
-	{ id: "pillow", kind: "pillow", name: "pillow", x: 230, w: 70, h: 24, restOn: 600, bounce: 0.9, carrySpeed: 0.93, bounceScale: 0.9 },
-	{ id: "key", kind: "key", name: "key", x: 900, w: 34, h: 16, restOn: 300, bounce: 0.6, carrySpeed: 0.97, bounceScale: 1, hidden: true },
+	{ id: "chest", kind: "chest", name: "toy chest", x: 990, ...fit("chest"), restOn: FLOOR_Y, bounce: 0.3, carrySpeed: 0.72, bounceScale: 0.45 },
+	{ id: "stool", kind: "stool", name: "stool", x: 1260, ...fit("stool"), restOn: FLOOR_Y, bounce: 0.35, carrySpeed: 0.85, bounceScale: 0.6 },
+	{ id: "pillow", kind: "pillow", name: "cushions", x: 190, ...fit("pillow"), restOn: FLOOR_Y - 70, bounce: 0.9, carrySpeed: 0.93, bounceScale: 0.9 },
+	{ id: "key", kind: "key", name: "key", x: 900, ...fit("key"), restOn: 300, bounce: 0.6, carrySpeed: 0.97, bounceScale: 1, hidden: true },
 ];
 
 /** Touching this rect (on the shelf) while carrying the key takes the player down the slide. */
 export const HATCH: Rect = { x: 1748, y: 148, w: 86, h: 102 };
 
-/** The chandelier hangs from the ceiling; the key dangles below it. */
-export const CHANDELIER = { x: 900, len: 150 };
-/** Bumping into this knocks the key loose. */
-export const CHANDELIER_HIT: Rect = { x: 828, y: 205, w: 144, h: 92 };
-/** Where the key hangs (centre), relative to the chandelier body. */
-export const KEY_HANG = { dx: 0, dy: 52 };
+/** The chandelier sprite hangs by its chain from (x, CEIL_Y); len = distance to its bottom finial. */
+export const CHANDELIER = { x: 900, len: SPRITES.chandelier.h };
+/** Bumping into the chandelier's candle tier or the dangling key knocks the key loose. */
+export const CHANDELIER_HIT: Rect = { x: 834, y: CEIL_Y + 96, w: 132, h: 120 };
+/** Where the key hangs (centre), relative to the chandelier's bottom finial. */
+export const KEY_HANG = { dx: 0, dy: 30 };
 
 export const PLAYER_START = { x: 560, y: FLOOR_Y - 22 };
 

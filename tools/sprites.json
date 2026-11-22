@@ -1,0 +1,20 @@
+{
+	"comment": "Sprite render list. Use a Poly Haven 'model' or a procedural 'build' (tools/procedural.py). size = target size in game units (fit by 'width' or 'height'); yaw = degrees to spin the model so the side we want faces the camera; passes = several aligned sprites from one camera, each showing only some parts.",
+	"pixelsPerUnit": 3,
+	"tiltDegrees": 6,
+	"outDir": "public/sprites/nursery",
+	"sprites": [
+		{"name": "bed", "model": "GothicBed_01", "yaw": 82, "tilt": 3, "fit": "width", "size": 350},
+		{"name": "wardrobe", "model": "GothicCabinet_01", "yaw": 18, "fit": "height", "size": 280},
+		{"name": "chandelier", "model": "Chandelier_03", "yaw": 0, "fit": "height", "size": 170, "tilt": 0},
+		{"name": "chest", "model": "treasure_chest", "yaw": 18, "fit": "width", "size": 130},
+		{"name": "stool", "model": "painted_wooden_stool", "yaw": 18, "fit": "height", "size": 60},
+		{"name": "pillow", "model": "throw_pillows_01", "yaw": 10, "fit": "width", "size": 80},
+		{"name": "nightstand", "model": "ClassicNightstand_01", "yaw": 18, "fit": "height", "size": 80},
+		{"name": "painting", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting"},
+		{"name": "key", "build": "key", "yaw": 0, "tilt": 0, "fit": "width", "size": 36},
+		{"name": "rocking_horse", "build": "rocking_horse", "yaw": 15, "fit": "width", "size": 150},
+		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "width", "size": 112, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
+		{"name": "player", "build": "child", "yaw": 25, "tilt": 4, "fit": "height", "size": 50, "passes": {"player": ["body", "eyes"], "player_blink": ["body", "lids"]}}
+	]
+}

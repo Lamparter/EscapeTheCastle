@@ -1,7 +1,9 @@
 import kaplay from "kaplay";
 import { FONT, VIEW_HEIGHT, makePalette } from "./config";
 import { buildFloorCanvas, buildRoomCanvas } from "./castleArt";
+import { spriteKey } from "./draw";
 import { registerGameScene } from "./game";
+import { SPRITES, type SpriteName } from "./sprites.generated";
 import { CASTLE_ART_TOP, CASTLE_BUTTRESSES, CASTLE_WINDOWS, CEIL_Y, FLOOR_Y, ROOM, WALL_L, WALL_R } from "./level1";
 
 const k = kaplay({
@@ -32,6 +34,9 @@ function makeVignette(): string {
 	return c.toDataURL();
 }
 k.loadSprite("vignette", makeVignette());
+
+// Furniture rendered from CC0 Poly Haven models (tools/render_sprites.py).
+for (const name of Object.keys(SPRITES) as SpriteName[]) k.loadSprite(spriteKey(name), SPRITES[name].file);
 
 /** Vertical fade that sinks the floor into darkness, where the monster lurks. */
 function makeFloorShade(): HTMLCanvasElement {

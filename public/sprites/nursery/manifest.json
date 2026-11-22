@@ -1,0 +1,72 @@
+{
+ "bed": {
+  "w": 353.5,
+  "h": 258.1,
+  "model": "GothicBed_01"
+ },
+ "wardrobe": {
+  "w": 219.3,
+  "h": 282.8,
+  "model": "GothicCabinet_01"
+ },
+ "chandelier": {
+  "w": 128.8,
+  "h": 171.7,
+  "model": "Chandelier_03"
+ },
+ "chest": {
+  "w": 131.3,
+  "h": 87.1,
+  "model": "treasure_chest"
+ },
+ "stool": {
+  "w": 47.4,
+  "h": 60.6,
+  "model": "painted_wooden_stool"
+ },
+ "pillow": {
+  "w": 80.8,
+  "h": 41.6,
+  "model": "throw_pillows_01"
+ },
+ "nightstand": {
+  "w": 71.0,
+  "h": 80.8,
+  "model": "ClassicNightstand_01"
+ },
+ "painting": {
+  "w": 147.1,
+  "h": 171.7,
+  "source": "fancy_picture_frame_02"
+ },
+ "key": {
+  "w": 36.4,
+  "h": 17.0,
+  "source": "key"
+ },
+ "rocking_horse": {
+  "w": 151.5,
+  "h": 116.2,
+  "source": "rocking_horse"
+ },
+ "hatch": {
+  "w": 113.1,
+  "h": 131.1,
+  "source": "hatch"
+ },
+ "hatch_lock": {
+  "w": 113.1,
+  "h": 131.1,
+  "source": "hatch"
+ },
+ "player": {
+  "w": 23.1,
+  "h": 50.5,
+  "source": "child"
+ },
+ "player_blink": {
+  "w": 23.1,
+  "h": 50.5,
+  "source": "child"
+ }
+}

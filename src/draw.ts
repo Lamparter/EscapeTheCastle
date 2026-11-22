@@ -1,10 +1,11 @@
 import type { Color, KAPLAYCtx } from "kaplay";
 import type { Palette } from "./config";
-import { CEIL_Y, CHANDELIER, FLOOR_Y, HATCH, KEY_HANG } from "./level1";
+import { CEIL_Y, CHANDELIER, FLOOR_Y, HATCH, KEY_HANG, type SpriteArt } from "./level1";
+import { SPRITES, type SpriteName } from "./sprites.generated";
 import type { Rect } from "./physics";
 
 /**
- * All mock-up art is drawn with shapes so it can be swapped for sprites later.
+ * Room art: rendered sprites (tools/render_sprites.py) plus a few shape-drawn bits (shelf, glows).
  * Every function draws in world coordinates.
  */
 export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
@@ -14,68 +15,69 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.drawRect({ pos: v(x, y), width: w, height: h, color, ...extra });
 	}
 
+	/** Where the old portrait hangs (its top-left corner) and where its blank marble eyes are on the sprite. */
+	const PORTRAIT = { x: 1086, y: 186 };
+	const PORTRAIT_EYES = [{ x: 0.363, y: 0.355 }, { x: 0.503, y: 0.355 }];
+
 	function portrait(px: number, py: number) {
-		const x = 1100, y = 200, w = 120, h = 150;
-		rect(x - 10, y - 10, w + 20, h + 20, pal.gold, { radius: 6 });
-		rect(x, y, w, h, k.rgb(26, 22, 24));
-		// Shadowy sitter
-		k.drawRect({ pos: v(x + 18, y + 84), width: w - 36, height: h - 84, radius: [34, 34, 0, 0], color: k.rgb(40, 34, 36) });
-		k.drawCircle({ pos: v(x + w / 2, y + 58), radius: 26, color: k.rgb(54, 46, 46) });
-		// The eyes follow the player.
-		const dir = v(px - (x + w / 2), py - (y + 55)).unit().scale(2.5);
-		for (const ex of [-9, 9]) {
-			k.drawCircle({ pos: v(x + w / 2 + ex, y + 55), radius: 4, color: k.rgb(170, 160, 140) });
-			k.drawCircle({ pos: v(x + w / 2 + ex + dir.x, y + 55 + dir.y), radius: 2, color: k.BLACK });
+		const s = SPRITES.painting;
+		k.drawSprite({ sprite: spriteKey("painting"), pos: v(PORTRAIT.x, PORTRAIT.y), width: s.w, height: s.h });
+		// Dark pupils drift across the blank marble eyes to follow the player.
+		for (const e of PORTRAIT_EYES) {
+			const ex = PORTRAIT.x + e.x * s.w, ey = PORTRAIT.y + e.y * s.h;
+			const dir = v(px - ex, py - ey).unit();
+			k.drawCircle({ pos: v(ex + dir.x * 2.2, ey + dir.y * 1.4), radius: 1.9, color: k.rgb(14, 10, 8), opacity: 0.9 });
 		}
 	}
 
 	function hatch(t: number, open: boolean, locked: boolean) {
-		const { x, y, w, h } = HATCH;
-		rect(x - 8, y - 8, w + 16, h + 8, pal.gold, { radius: [40, 40, 0, 0] });
-		rect(x, y, w, h, k.rgb(4, 3, 6), { radius: [34, 34, 0, 0] });
-		// Faint draught of light from the slide beyond
-		const glow = 0.12 + 0.05 * Math.sin(t * 2) + (open ? 0.1 : 0);
-		k.drawRect({ pos: v(x + 8, y + 20), width: w - 16, height: h - 20, color: pal.moon, opacity: glow, radius: [28, 28, 0, 0] });
-		// Slide lip
-		k.drawPolygon({ pts: [v(x + 6, y + h), v(x + w - 6, y + h), v(x + w - 20, y + h - 30), v(x + 20, y + h - 30)], color: pal.yellow, opacity: 0.6 });
-		if (locked) {
-			// Chains across the opening and a heavy padlock
-			k.drawLine({ p1: v(x + 4, y + 30), p2: v(x + w - 4, y + 70), width: 3, color: pal.textDim, opacity: 0.8 });
-			k.drawLine({ p1: v(x + w - 4, y + 30), p2: v(x + 4, y + 70), width: 3, color: pal.textDim, opacity: 0.8 });
-			const lx = x + w / 2, ly = y + 52;
-			k.drawCircle({ pos: v(lx, ly - 8), radius: 9, fill: false, outline: { width: 3, color: pal.textDim } });
-			rect(lx - 12, ly - 6, 24, 20, pal.gold, { radius: 3 });
-			k.drawCircle({ pos: v(lx, ly + 2), radius: 3, color: k.BLACK });
-			rect(lx - 1, ly + 3, 2, 6, k.BLACK);
-		}
+		const s = SPRITES.hatch;
+		const cx = HATCH.x + HATCH.w / 2, bottom = HATCH.y + HATCH.h + 4;
+		// Faint draught of moonlight from the slide beyond, behind the frame's dark opening
+		const glow = 0.06 + 0.03 * Math.sin(t * 2) + (open ? 0.12 : 0);
+		k.drawSprite({ sprite: spriteKey("hatch"), pos: v(cx, bottom), width: s.w, height: s.h, anchor: "bot" });
+		k.drawEllipse({ pos: v(cx, bottom - s.h * 0.45), radiusX: s.w * 0.3, radiusY: s.h * 0.32, color: pal.moon, opacity: glow });
+		if (locked) k.drawSprite({ sprite: spriteKey("hatch_lock"), pos: v(cx, bottom), width: s.w, height: s.h, anchor: "bot" });
 	}
 
-	/** World position of the chandelier body for a given extra swing angle (radians). */
+	const swingAngle = (t: number, swing: number) => Math.sin(t * 0.9) * 0.05 + swing;
+
+	/** World position of the chandelier's bottom finial for a given extra swing angle (radians). */
 	function chandelierPos(t: number, swing: number) {
-		const a = Math.sin(t * 0.9) * 0.05 + swing;
+		const a = swingAngle(t, swing);
 		return v(CHANDELIER.x + Math.sin(a) * CHANDELIER.len, CEIL_Y + Math.cos(a) * CHANDELIER.len);
 	}
 
+	/** A rendered furniture sprite standing on its floor line. */
+	function placed(art: SpriteArt) {
+		const s = SPRITES[art.sprite];
+		k.drawSprite({ sprite: spriteKey(art.sprite), pos: v(art.left, art.bottom - s.h), width: s.w, height: s.h });
+	}
+
 	function chandelier(t: number, swing: number, hasKey: boolean) {
-		const ax = CHANDELIER.x, ay = CEIL_Y;
-		const { x: cx, y: cy } = chandelierPos(t, swing);
+		const s = SPRITES.chandelier;
+		const a = swingAngle(t, swing);
 		if (hasKey) {
-			// The key dangles on a ribbon below, catching the candlelight.
-			const kx = cx + KEY_HANG.dx, ky = cy + KEY_HANG.dy;
-			k.drawLine({ p1: v(cx, cy + 12), p2: v(kx, ky - 8), width: 2, color: pal.red });
+			// The key dangles on a ribbon below the finial, catching the candlelight.
+			const f = chandelierPos(t, swing);
+			const kx = f.x + KEY_HANG.dx, ky = f.y + KEY_HANG.dy;
+			k.drawLine({ p1: f, p2: v(kx, ky - 8), width: 2, color: pal.red });
 			drawItem(k, pal, "key", kx - 17, ky - 8, 34, 16);
 			k.drawCircle({ pos: v(kx + 10, ky - 4), radius: 2 + Math.abs(Math.sin(t * 3)) * 2, color: pal.flame, opacity: 0.7 });
 		}
-		k.drawLine({ p1: v(ax, ay), p2: v(cx, cy), width: 3, color: pal.gold });
-		k.drawEllipse({ pos: v(cx, cy + 10), radiusX: 70, radiusY: 14, color: pal.gold, fill: false, outline: { width: 4, color: pal.gold } });
-		k.drawCircle({ pos: v(cx, cy + 6), radius: 10, color: pal.gold });
-		for (let i = -3; i <= 3; i++) {
-			const fx = cx + i * 22, fy = cy + 4 - Math.abs(i) * 2;
-			rect(fx - 3, fy - 14, 6, 14, pal.linen);
-			const flick = 0.6 + 0.4 * Math.sin(t * 13 + i * 2.1) * Math.sin(t * 7.3 + i);
-			k.drawCircle({ pos: v(fx, fy - 20), radius: 14, color: pal.flame, opacity: 0.12 * flick });
-			k.drawEllipse({ pos: v(fx, fy - 19), radiusX: 3, radiusY: 6, color: pal.flame, opacity: 0.8 * flick + 0.2 });
-		}
+		k.pushTransform();
+		k.pushTranslate(CHANDELIER.x, CEIL_Y);
+		k.pushRotate(-k.rad2deg(a));
+		k.drawSprite({ sprite: spriteKey("chandelier"), pos: v(0, 0), width: s.w, height: s.h, anchor: "top" });
+		// Flickering glow over the candle tips (positions measured on the rendered sprite).
+		const tips = [-0.4, -0.25, -0.1, 0.1, 0.25, 0.4];
+		tips.forEach((fx, i) => {
+			const flick = 0.55 + 0.45 * Math.sin(t * 13 + i * 2.1) * Math.sin(t * 7.3 + i);
+			const p = v(fx * s.w, s.h * (0.58 + (i % 2) * 0.05));
+			k.drawCircle({ pos: p, radius: 16, color: pal.flame, opacity: 0.09 * flick });
+			k.drawCircle({ pos: p, radius: 4, color: pal.flame, opacity: 0.35 * flick });
+		});
+		k.popTransform();
 	}
 
 	function shelf(s: Rect) {
@@ -87,92 +89,46 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		}
 	}
 
-	function bed(s: Rect) {
-		// Headboard and footboard (decor)
-		rect(s.x - 14, s.y - 110, 24, s.h + 110, pal.woodDark, { radius: [10, 10, 0, 0] });
-		k.drawCircle({ pos: v(s.x - 2, s.y - 116), radius: 10, color: pal.gold });
-		rect(s.x + s.w - 10, s.y - 40, 20, s.h + 40, pal.woodDark, { radius: [8, 8, 0, 0] });
-		// Mattress + blanket
-		rect(s.x, s.y, s.w, 34, pal.linen, { radius: 8 });
-		rect(s.x + 90, s.y + 4, s.w - 96, 44, pal.blue, { radius: 8 });
-		rect(s.x, s.y + 34, s.w, s.h - 34, pal.wood);
-		for (let x = s.x + 20; x < s.x + s.w - 20; x += 40) rect(x, s.y + 60, 20, 6, pal.woodDark);
-	}
-
-	function wardrobe(s: Rect) {
-		rect(s.x - 8, s.y - 18, s.w + 16, 22, pal.woodDark, { radius: [12, 12, 0, 0] });
-		rect(s.x, s.y, s.w, s.h, pal.wood);
-		rect(s.x + 10, s.y + 14, s.w / 2 - 14, s.h - 60, pal.woodDark, { radius: 6 });
-		rect(s.x + s.w / 2 + 4, s.y + 14, s.w / 2 - 14, s.h - 60, pal.woodDark, { radius: 6 });
-		k.drawCircle({ pos: v(s.x + s.w / 2 - 10, s.y + s.h / 2), radius: 4, color: pal.gold });
-		k.drawCircle({ pos: v(s.x + s.w / 2 + 10, s.y + s.h / 2), radius: 4, color: pal.gold });
-		rect(s.x, s.y + s.h - 36, s.w, 6, pal.woodDark);
-	}
-
 	function rockingHorse(t: number, sink = 0) {
-		const x = 760, y = FLOOR_Y + sink;
+		const s = SPRITES.rocking_horse;
 		const rock = Math.sin(t * 0.6) * 0.06;
 		k.pushTransform();
-		k.pushTranslate(x, y - 6);
+		k.pushTranslate(760, FLOOR_Y + 2 + sink);
 		k.pushRotate(k.rad2deg(rock));
-		k.drawEllipse({ pos: v(0, 0), radiusX: 70, radiusY: 10, color: pal.woodDark, start: 180, end: 360, fill: false, outline: { width: 6, color: pal.woodDark } });
-		k.drawLine({ p1: v(-30, -4), p2: v(-20, -50), width: 6, color: pal.woodDark });
-		k.drawLine({ p1: v(30, -4), p2: v(20, -50), width: 6, color: pal.woodDark });
-		k.drawEllipse({ pos: v(0, -60), radiusX: 40, radiusY: 18, color: pal.linenDark });
-		k.drawPolygon({ pts: [v(28, -66), v(48, -110), v(66, -100), v(46, -60)], color: pal.linenDark });
-		k.drawCircle({ pos: v(56, -100), radius: 3, color: k.BLACK });
-		k.drawLine({ p1: v(-40, -64), p2: v(-58, -40), width: 5, color: pal.redDark });
+		k.drawSprite({ sprite: spriteKey("rocking_horse"), pos: v(0, 0), width: s.w, height: s.h, anchor: "bot" });
 		k.popTransform();
 	}
 
-	return { portrait, hatch, chandelier, chandelierPos, shelf, bed, wardrobe, rockingHorse };
+	return { portrait, hatch, chandelier, chandelierPos, placed, shelf, rockingHorse };
 }
+
+/** KAPLAY asset name for a rendered sprite. */
+export const spriteKey = (name: SpriteName) => `nursery_${name}`;
+
+const ITEM_SPRITES: Record<string, SpriteName> = { chest: "chest", stool: "stool", pillow: "pillow", key: "key" };
 
 export function drawItem(k: KAPLAYCtx, pal: Palette, kind: string, x: number, y: number, w: number, h: number, opacity = 1) {
 	const v = k.vec2;
 	const o = { opacity };
-	if (kind === "chest") {
-		k.drawRect({ pos: v(x, y), width: w, height: h, color: pal.red, radius: 4, ...o });
-		k.drawRect({ pos: v(x, y), width: w, height: 18, color: pal.redDark, radius: [6, 6, 0, 0], ...o });
-		k.drawRect({ pos: v(x, y + 26), width: w, height: 5, color: pal.gold, ...o });
-		k.drawRect({ pos: v(x + w / 2 - 7, y + 14), width: 14, height: 16, color: pal.gold, radius: 3, ...o });
-		k.drawText({ text: "ABC", pos: v(x + w / 2, y + h - 22), size: 16, anchor: "center", color: pal.yellow, ...o });
-	} else if (kind === "stool") {
-		k.drawRect({ pos: v(x, y), width: w, height: 14, color: pal.wood, radius: 5, ...o });
-		k.drawRect({ pos: v(x + 4, y + 14), width: 8, height: h - 14, color: pal.woodDark, ...o });
-		k.drawRect({ pos: v(x + w - 12, y + 14), width: 8, height: h - 14, color: pal.woodDark, ...o });
-		k.drawRect({ pos: v(x + 8, y + h - 20), width: w - 16, height: 5, color: pal.woodDark, ...o });
-	} else if (kind === "key") {
-		// Ornate gold key: ring bow, shaft and teeth
-		k.drawCircle({ pos: v(x + 8, y + h / 2), radius: 7, fill: false, outline: { width: 3, color: pal.gold }, opacity });
-		k.drawRect({ pos: v(x + 14, y + h / 2 - 2), width: w - 14, height: 4, color: pal.gold, ...o });
-		k.drawRect({ pos: v(x + w - 9, y + h / 2 + 2), width: 4, height: 6, color: pal.gold, ...o });
-		k.drawRect({ pos: v(x + w - 3, y + h / 2 + 2), width: 3, height: 4, color: pal.gold, ...o });
-	} else if (kind === "pillow") {
-		k.drawRect({ pos: v(x, y), width: w, height: h, color: pal.linen, radius: 10, ...o });
-		k.drawRect({ pos: v(x + 8, y + 6), width: w - 16, height: h - 12, color: pal.linenDark, radius: 6, opacity: 0.4 * opacity });
+	const spr = ITEM_SPRITES[kind];
+	if (spr) {
+		// Sprite is a touch larger than the hitbox (render margin); keep it bottom-centred.
+		const s = SPRITES[spr];
+		const sw = s.w * (w / (s.w - 3)), sh = s.h * (h / (s.h - 2));
+		k.drawSprite({ sprite: spriteKey(spr), pos: v(x + w / 2, y + h + 1), width: sw, height: sh, anchor: "bot", opacity });
+		return;
 	}
 }
 
-/** The player: a child in a nightgown. Squashes and stretches with vertical speed. */
-export function drawPlayer(k: KAPLAYCtx, pal: Palette, x: number, y: number, hw: number, hh: number, vy: number, facing: number, t: number) {
-	const v = k.vec2;
+/** The player: a porcelain-doll child in a nightgown. Squashes and stretches with vertical speed. */
+export function drawPlayer(k: KAPLAYCtx, x: number, y: number, hh: number, vy: number, facing: number, t: number) {
+	const s = SPRITES.player;
 	const stretch = Math.max(-0.25, Math.min(0.25, -vy / 3000));
 	const sx = 1 - stretch * 0.7, sy = 1 + stretch;
-	k.pushTransform();
-	k.pushTranslate(x, y + hh);
-	k.pushScale(sx, sy);
-	// Gown
-	const g = hh * 2 - 22;
-	k.drawPolygon({ pts: [v(-hw - 1, 0), v(hw + 1, 0), v(hw - 5, -g), v(-hw + 5, -g)], color: pal.gown });
-	// Head
-	k.drawCircle({ pos: v(0, -g - 11), radius: 12, color: pal.skin });
-	// Hair
-	k.drawCircle({ pos: v(-facing * 3, -g - 16), radius: 11, color: k.rgb(52, 36, 28), start: 180, end: 360 });
-	// Eyes (blink now and then)
 	const blink = (t % 4) < 0.12;
-	for (const ex of [-4, 4]) {
-		k.drawRect({ pos: v(ex + facing * 3 - 1.5, -g - 12), width: 3, height: blink ? 1 : 4, color: k.rgb(20, 16, 16) });
-	}
+	k.pushTransform();
+	k.pushTranslate(x, y + hh + 1);
+	k.pushScale(sx, sy);
+	k.drawSprite({ sprite: spriteKey(blink ? "player_blink" : "player"), pos: k.vec2(0, 0), width: s.w, height: s.h, anchor: "bot", flipX: facing < 0 });
 	k.popTransform();
 }
