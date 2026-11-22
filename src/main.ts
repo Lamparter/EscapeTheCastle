@@ -247,7 +247,7 @@ k.scene("title", () => {
 			if (showControls) {
 				const cw = Math.min(W - 32 * u, 540 * u), chh = 200 * u, cx = W / 2 - cw / 2, cy = H * 0.5;
 				ui.panel(cx, cy, cw, chh, 0.95);
-				const rows = [["A / D", "shuffle along"], ["W / Space", "jump, and again in the air"], ["hold S", "sink into the floor, release to spring"], ["E", "carry or drop furniture"], ["R  /  Esc", "restart  /  menu"]];
+				const rows = [["A / D", "shuffle along"], ["W / Space", "jump, and again in the air"], ["hold S", "sink into the floor, release to spring"], ["E", "carry or drop furniture"], ["R  /  Esc  /  M", "restart  /  menu  /  mute"]];
 				rows.forEach(([key, what], i) => {
 					const y = cy + 32 * u + i * 34 * u;
 					k.drawText({ text: key, pos: k.vec2(cx + cw * 0.32, y), size: 17 * u, color: GILT, anchor: "right", font: FONT });

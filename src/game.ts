@@ -828,7 +828,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					"Hold S on the floor - sink in; let go to spring up high",
 					"Hold S while bouncing - dig in and stop bouncing",
 					"E - pick up / put down (the pointer picks the spot)",
-					"R - restart room      Esc - menu",
+					"R - restart room      Esc - menu      M - mute",
 				];
 				lines.forEach((l, i) => k.drawText({ text: l, pos: v(W / 2, H * 0.32 + i * 24 * u), size: 15 * u, color: pal.text, font: FONT, anchor: "center" }));
 				ui.button("Back", W / 2, H * 0.32 + lines.length * 24 * u + 24 * u, u, () => { showControls = false; });
@@ -837,6 +837,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			ui.button("Resume", W / 2, H * 0.36, u, () => { paused = false; });
 			ui.button("Restart room", W / 2, H * 0.36 + 56 * u, u, () => k.go("game"));
 			ui.button("Controls", W / 2, H * 0.36 + 112 * u, u, () => { showControls = true; });
+			ui.button("Return to title", W / 2, H * 0.36 + 168 * u, u, () => k.go("title"));
 		}
 
 		function clickMenu(p: Vec2) {
