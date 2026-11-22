@@ -7,7 +7,8 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 
 | Input | Action |
 | --- | --- |
-| Click / Space | Start charging a jump; click again to launch at the bar's current level |
+| Tap Click / Space | Quick hop toward the pointer |
+| Hold Click / Space | Start charging (the bar keeps swinging after you let go); click again to launch |
 | Pointer | Aim (the dots show the jump) |
 | A / D or Left / Right | Drift a little while airborne |
 | E | Pick up / put down light furniture (toy chest, stool, pillow) |
@@ -21,7 +22,8 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/game.ts` - the room scene: input, charge/aim, carrying, camera, HUD, pause menu
 - `src/physics.ts` - small AABB physics with restitution (bouncy surfaces)
 - `src/level1.ts` - The Nursery layout and puzzle data
-- `src/draw.ts` - placeholder art drawn with shapes
+- `src/castleArt.ts` - procedural vector art for the bouncy castle interior (rendered once to canvases)
+- `src/draw.ts` - placeholder furniture/character art drawn with shapes (to be replaced by hand-drawn sprites)
 - `src/config.ts` - tuning values and the colour palette
 
 ## Development
@@ -30,7 +32,7 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 pnpm run dev
 ```
 
-starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player.
+starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player; `__etc.fx(false)` hides the vignette to inspect the art.
 
 ```sh
 pnpm run check

@@ -44,9 +44,9 @@ function makeFloorWave(width: number, strip: number) {
 		d,
 		hit(x: number, speed: number) {
 			const c = x / strip;
-			for (let i = Math.max(0, Math.floor(c - 4)); i <= Math.min(n - 1, Math.ceil(c + 4)); i++) {
-				const f = Math.max(0, 1 - Math.abs(i - c) / 4.5);
-				vel[i] += speed * 0.09 * f;
+			for (let i = Math.max(0, Math.floor(c - 8)); i <= Math.min(n - 1, Math.ceil(c + 8)); i++) {
+				const f = Math.max(0, 1 - Math.abs(i - c) / 9);
+				vel[i] += speed * 0.28 * f;
 			}
 		},
 		update(dt: number) {
@@ -54,7 +54,7 @@ function makeFloorWave(width: number, strip: number) {
 			for (let s = 0; s < steps; s++) {
 				for (let i = 0; i < n; i++) {
 					const l = d[Math.max(0, i - 1)], r = d[Math.min(n - 1, i + 1)];
-					const a = -160 * d[i] - 5 * vel[i] + 1400 * (l + r - 2 * d[i]);
+					const a = -140 * d[i] - 4.5 * vel[i] + 700 * (l + r - 2 * d[i]);
 					vel[i] += a * h;
 				}
 				for (let i = 0; i < n; i++) d[i] = Math.max(-10, Math.min(22, d[i] + vel[i] * h));
@@ -83,7 +83,8 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		let charge: ChargeState = "idle";
 		let chargeTime = 0;
 		let pressing = false; // jump button held, not yet turned into a hop or a charge
-		let pressTime = 0;
+		let pressStart = 0; // performance.now() of the press, so taps are timed independently of frame rate
+		const heldFor = () => (performance.now() - pressStart) / 1000;
 		let pending: PendingJump | null = null;
 		let lastContact = 0; // elapsed time of the last landing/touch on a surface top
 		let carrying: Item | null = null;
@@ -110,8 +111,9 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		let flickerT = 6 + Math.random() * 6;
 		let blackout = 0;
 		let dim = 0;
+		let fxOn = true; // dev toggle: hide vignette/darkness to inspect the art
 
-		const floorWave = makeFloorWave(ROOM.w, 24);
+		const floorWave = makeFloorWave(ROOM.w, 12);
 
 		const items: Item[] = ITEMS.map((def) => ({
 			def,
@@ -192,16 +194,22 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				return;
 			}
 			pressing = true;
-			pressTime = 0;
+			pressStart = performance.now();
 		}
 
 		function jumpReleased() {
 			if (!pressing) return;
 			pressing = false;
 			if (paused || phase !== "play") return;
+			if (heldFor() >= PHYS.holdToCharge) { startCharge(); return; }
 			// Released before the hold threshold: a quick hop.
 			pending = { kind: "hop", power: 0, ttl: PHYS.hopBuffer };
 			tryFire();
+		}
+
+		function startCharge() {
+			charge = "charging";
+			chargeTime = 0;
 		}
 
 		// ---------- Furniture ----------
@@ -311,20 +319,36 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		if (import.meta.env.DEV) {
 			(window as any).__etc = {
 				player, items, toggleCarry,
+				fx(on: boolean) { fxOn = on; },
+				floorWave,
 				teleport(x: number, y: number) { player.x = x; player.y = y; player.vx = player.vy = 0; player.grounded = false; player.ground = null; },
 				state: () => ({ x: player.x, y: player.y, vx: player.vx, vy: player.vy, grounded: player.grounded, ground: player.ground?.id, carrying: carrying?.def.id, charge, pending, phase, elapsed }),
 			};
 		}
 
 		// ---------- Input ----------
-		k.onMousePress("left", () => {
-			if (paused) { clickMenu(k.mousePos()); return; }
-			jumpPressed();
+		// Jump input comes from raw DOM events (not per-frame polling) so a quick tap is never
+		// lost even if press and release land in the same frame, e.g. on a touchpad tap.
+		const onPointerDown = (e: PointerEvent) => { if (e.button === 0 && !paused) jumpPressed(); };
+		const onPointerUp = (e: PointerEvent) => { if (e.button === 0) jumpReleased(); };
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.code !== "Space") return;
+			e.preventDefault();
+			if (!e.repeat) jumpPressed();
+		};
+		const onKeyUp = (e: KeyboardEvent) => { if (e.code === "Space") jumpReleased(); };
+		k.canvas.addEventListener("pointerdown", onPointerDown);
+		window.addEventListener("pointerup", onPointerUp);
+		window.addEventListener("keydown", onKeyDown);
+		window.addEventListener("keyup", onKeyUp);
+		k.onSceneLeave(() => {
+			k.canvas.removeEventListener("pointerdown", onPointerDown);
+			window.removeEventListener("pointerup", onPointerUp);
+			window.removeEventListener("keydown", onKeyDown);
+			window.removeEventListener("keyup", onKeyUp);
 		});
-		k.onMouseRelease("left", jumpReleased);
+		k.onMousePress("left", () => { if (paused) clickMenu(k.mousePos()); });
 		k.onMousePress("right", () => { charge = "idle"; pending = null; pressing = false; });
-		k.onKeyPress("space", jumpPressed);
-		k.onKeyRelease("space", jumpReleased);
 		k.onKeyPress("e", toggleCarry);
 		k.onKeyPress("r", () => k.go("game"));
 		k.onKeyPress("escape", () => {
@@ -359,13 +383,9 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 			// Holding the button past the threshold turns it into a charge. The bar then keeps
 			// swinging after release, and the next click launches.
-			if (pressing) {
-				pressTime += dt;
-				if (pressTime >= PHYS.holdToCharge) {
-					pressing = false;
-					charge = "charging";
-					chargeTime = 0;
-				}
+			if (pressing && heldFor() >= PHYS.holdToCharge) {
+				pressing = false;
+				startCharge();
 			}
 			if (charge === "charging") chargeTime += dt;
 			if (pending) {
@@ -532,8 +552,8 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			const d = aimDir();
 			const c = v(player.x, py);
 			// Hold-to-charge progress ring
-			if (pressing && pressTime > 0.05) {
-				const f = Math.min(1, pressTime / PHYS.holdToCharge);
+			if (pressing && heldFor() > 0.05) {
+				const f = Math.min(1, heldFor() / PHYS.holdToCharge);
 				k.drawCircle({ pos: c, radius: 34, fill: false, outline: { width: 2, color: pal.textDim }, opacity: 0.3 });
 				k.drawCircle({ pos: c, radius: 34, start: -90, end: -90 + 360 * f, color: pal.yellow, opacity: 0.25 });
 			}
@@ -571,7 +591,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				// Vignette centred on the player
 				const flick = dim > 0 ? 0.75 + 0.2 * Math.sin(t * 60) : 1;
 				const size = H * 5 * flick;
-				k.drawSprite({ sprite: "vignette", pos: ps, width: size, height: size, anchor: "center" });
+				if (fxOn) k.drawSprite({ sprite: "vignette", pos: ps, width: size, height: size, anchor: "center" });
 
 				// Monster: a glowing, blurred shape lurking under the vinyl
 				const ms = k.toScreen(v(monsterX, ROOM.h + 30));

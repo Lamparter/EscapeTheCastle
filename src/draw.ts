@@ -19,7 +19,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		rect(x - 10, y - 10, w + 20, h + 20, pal.gold, { radius: 6 });
 		rect(x, y, w, h, k.rgb(26, 22, 24));
 		// Shadowy sitter
-		k.drawEllipse({ pos: v(x + w / 2, y + h), radiusX: 46, radiusY: 50, color: k.rgb(40, 34, 36) });
+		k.drawRect({ pos: v(x + 18, y + 84), width: w - 36, height: h - 84, radius: [34, 34, 0, 0], color: k.rgb(40, 34, 36) });
 		k.drawCircle({ pos: v(x + w / 2, y + 58), radius: 26, color: k.rgb(54, 46, 46) });
 		// The eyes follow the player.
 		const dir = v(px - (x + w / 2), py - (y + 55)).unit().scale(2.5);
