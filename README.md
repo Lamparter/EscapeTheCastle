@@ -1,7 +1,6 @@
 # Escape Hollybank Manor
 
-A horror game inside a bouncy Victorian dollhouse. Low gravity, a very bouncy floor and something lurking under the floorboards: bounce your way out of each room.
-This is the first mock-up: Room I (The Nursery, the tutorial).
+You're a porcelain doll trapped in a Victorian dollhouse. The floor is soft, springy and wildly bouncy, the candles keep failing, and something lives beneath the floorboards. Bounce, spring and climb your way out of each room before it decides to come closer.
 
 ## Controls
 
