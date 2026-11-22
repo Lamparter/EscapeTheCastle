@@ -1,10 +1,10 @@
 import kaplay from "kaplay";
 import { FONT, VIEW_HEIGHT, makePalette } from "./config";
-import { buildFloorCanvas, buildRoomCanvas } from "./castleArt";
+import { THEMES, buildFloorCanvas, buildRoomCanvas } from "./dollhouseArt";
 import { spriteKey } from "./draw";
 import { registerGameScene } from "./game";
 import { SPRITES, type SpriteName } from "./sprites.generated";
-import { CASTLE_ART_TOP, CASTLE_BUTTRESSES, CASTLE_WINDOWS, CEIL_Y, FLOOR_Y, ROOM, WALL_L, WALL_R } from "./level1";
+import { CEIL_Y, FLOOR_Y, ROOM, ROOM_ART_TOP, ROOM_THEME, ROOM_WINDOWS, WALL_L, WALL_R } from "./level1";
 
 const k = kaplay({
 	background: [6, 5, 9],
@@ -55,23 +55,28 @@ function makeFloorShade(): HTMLCanvasElement {
 }
 k.loadSprite("floorShade", makeFloorShade());
 
-// The castle interior is procedural vector art rendered once to canvases.
-const castleLayout = {
+// The dollhouse room: vector walls rendered once to a canvas, plus a floor made from a real
+// CC0 parquet photo (loaded first, so KAPLAY waits for it before the game can start).
+const roomLayout = {
 	w: ROOM.w, h: ROOM.h, floorY: FLOOR_Y, ceilY: CEIL_Y, wallL: WALL_L, wallR: WALL_R,
-	top: CASTLE_ART_TOP, windows: CASTLE_WINDOWS, buttresses: CASTLE_BUTTRESSES, seed: 7,
+	top: ROOM_ART_TOP, windows: ROOM_WINDOWS, theme: THEMES[ROOM_THEME], seed: 7,
 };
-k.loadSprite("castleRoom", buildRoomCanvas(castleLayout));
-k.loadSprite("castleFloor", buildFloorCanvas(castleLayout));
+k.loadSprite("roomArt", buildRoomCanvas(roomLayout));
+k.load((async () => {
+	const img = new Image();
+	img.src = "textures/herringbone_parquet_diff.jpg";
+	await img.decode();
+	await k.loadSprite("floorArt", buildFloorCanvas(roomLayout, img));
+})());
 
 const pal = makePalette(k);
 registerGameScene(k, pal);
 
-function stripes() {
+/** Title backdrop: a slice of the nursery wall, under the vignette. */
+function backdrop() {
 	const W = k.width(), H = k.height();
-	const n = Math.ceil(W / 80) + 1;
-	for (let i = 0; i < n; i++) {
-		k.drawRect({ pos: k.vec2(i * 80, 0), width: 80, height: H, color: i % 2 ? pal.redDark : pal.yellowDark });
-	}
+	const s = H / 420;
+	k.drawSprite({ sprite: "roomArt", pos: k.vec2(W / 2 - 610 * s, -ROOM_ART_TOP * s), width: ROOM.w * s, height: (ROOM.h + ROOM_ART_TOP) * s });
 	k.drawSprite({ sprite: "vignette", pos: k.vec2(W / 2, H / 2), width: H * 5, height: H * 5, anchor: "center" });
 }
 
@@ -83,9 +88,9 @@ k.scene("title", () => {
 		id: "title",
 		draw() {
 			const W = k.width(), H = k.height(), u = H / VIEW_HEIGHT;
-			stripes();
+			backdrop();
 			k.drawText({ text: "Escape The Castle", pos: k.vec2(W / 2, H * 0.38), size: 64 * u, color: pal.text, anchor: "center", font: FONT });
-			k.drawText({ text: "a horror game inside a bouncy castle", pos: k.vec2(W / 2, H * 0.38 + 50 * u), size: 18 * u, color: pal.textDim, anchor: "center", font: FONT });
+			k.drawText({ text: "a horror game inside a bouncy Victorian dollhouse", pos: k.vec2(W / 2, H * 0.38 + 50 * u), size: 18 * u, color: pal.textDim, anchor: "center", font: FONT });
 			k.drawText({ text: "Click or press Space to begin", pos: k.vec2(W / 2, H * 0.7), size: 18 * u, color: pal.text, anchor: "center", font: FONT, opacity: 0.5 + 0.4 * Math.sin(t * 3) });
 		},
 	}]);

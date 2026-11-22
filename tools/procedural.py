@@ -5,9 +5,14 @@ script can render passes that show only some parts (e.g. the hatch's chains, the
 Units are metres; the camera looks along +Y, so -Y faces the viewer and +X is screen-right.
 """
 import math
+import pathlib
 
 import bpy
 from mathutils import Vector
+
+TEXTURES = pathlib.Path(__file__).resolve().parent.parent / "art" / "source" / "textures"
+# Brass/gilt: a real scratched-metal photo blended towards gold.
+BRASS = ((0.78, 0.56, 0.24), 0.72)
 
 # ---------------------------------------------------------------- helpers
 
@@ -50,6 +55,68 @@ def _material(name, color, rough=0.5, metal=0.0, sss=0.0, ramp=None, noise_scale
             cr.color_ramp.elements[1].position = 0.45
         nt.links.new(tex.outputs["Distance" if voronoi else "Fac"], cr.inputs["Fac"])
         nt.links.new(cr.outputs["Color"], bsdf.inputs["Base Color"])
+    return m
+
+
+def photo(name, tex, tint=(1, 1, 1), scale=4.0, metal=0.0, rough=None, coat=0.0, sss=0.0, mix_color=None):
+    """Material from real CC0 photo textures (art/source/textures/<tex>/), box-projected on object
+    coordinates so it works on any mesh. `tint` multiplies the photo's colour; `mix_color` = (rgb, amount)
+    blends towards a flat colour (e.g. to turn grey metal into brass while keeping its photo detail)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Metallic"].default_value = metal
+    if coat:
+        bsdf.inputs["Coat Weight"].default_value = coat
+    if sss:
+        bsdf.inputs["Subsurface Weight"].default_value = sss
+        bsdf.inputs["Subsurface Radius"].default_value = (0.02, 0.01, 0.008)
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    mapping = nt.nodes.new("ShaderNodeMapping")
+    mapping.inputs["Scale"].default_value = (scale, scale, scale)
+    nt.links.new(coord.outputs["Object"], mapping.inputs["Vector"])
+
+    def image(kind, non_color):
+        path = TEXTURES / tex / f"{kind}.jpg"
+        if not path.exists():
+            raise FileNotFoundError(f"{path}: run python tools/fetch_polyhaven.py first")
+        node = nt.nodes.new("ShaderNodeTexImage")
+        node.image = bpy.data.images.load(str(path), check_existing=True)
+        if non_color:
+            node.image.colorspace_settings.name = "Non-Color"
+        node.projection = "BOX"
+        node.projection_blend = 0.3
+        nt.links.new(mapping.outputs["Vector"], node.inputs["Vector"])
+        return node
+
+    col = image("diffuse", False)
+    tint_node = nt.nodes.new("ShaderNodeMix")
+    tint_node.data_type = "RGBA"
+    tint_node.blend_type = "MULTIPLY"
+    tint_node.inputs["Factor"].default_value = 1.0
+    nt.links.new(col.outputs["Color"], tint_node.inputs[6])
+    tint_node.inputs[7].default_value = (*tint, 1)
+    out = tint_node.outputs[2]
+    if mix_color:
+        mix = nt.nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        mix.blend_type = "MIX"
+        mix.inputs["Factor"].default_value = mix_color[1]
+        nt.links.new(out, mix.inputs[6])
+        mix.inputs[7].default_value = (*mix_color[0], 1)
+        out = mix.outputs[2]
+    nt.links.new(out, bsdf.inputs["Base Color"])
+    r = image("rough", True)
+    if rough is None:
+        nt.links.new(r.outputs["Color"], bsdf.inputs["Roughness"])
+    else:
+        bsdf.inputs["Roughness"].default_value = rough
+    n = image("nor_gl", True)
+    nmap = nt.nodes.new("ShaderNodeNormalMap")
+    nmap.inputs["Strength"].default_value = 0.6
+    nt.links.new(n.outputs["Color"], nmap.inputs["Color"])
+    nt.links.new(nmap.outputs["Normal"], bsdf.inputs["Normal"])
     return m
 
 
@@ -182,7 +249,7 @@ def _finish(parts):
 
 
 def build_key(cfg, **_):
-    brass = _material("Brass", (0.75, 0.55, 0.25), rough=0.3, metal=1.0, ramp=((0.45, 0.32, 0.14), (0.82, 0.62, 0.3)), noise_scale=40)
+    brass = photo("Brass", "metal_plate", mix_color=BRASS, scale=30, metal=0.6, rough=0.32)
     objs = []
     # Ornate bow: a ring with three lobes, like an old skeleton key
     objs.append(torus((-0.045, 0, 0), 0.022, 0.0045, brass, rot=(math.pi / 2, 0, 0)))
@@ -200,14 +267,39 @@ def build_key(cfg, **_):
     return _finish({"key": objs})
 
 
+def _dapple_photo():
+    m = photo("Dapple", "painted_plaster_wall", tint=(1.0, 0.98, 0.94), scale=5, coat=0.5, rough=0.35)
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    base = bsdf.inputs["Base Color"].links[0].from_socket
+    vor = nt.nodes.new("ShaderNodeTexVoronoi")
+    vor.inputs["Scale"].default_value = 14
+    gen = nt.nodes.new("ShaderNodeTexCoord")
+    nt.links.new(gen.outputs["Generated"], vor.inputs["Vector"])
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (0.45, 0.44, 0.43, 1)
+    ramp.color_ramp.elements[0].position = 0.25
+    ramp.color_ramp.elements[1].color = (1, 1, 1, 1)
+    ramp.color_ramp.elements[1].position = 0.45
+    nt.links.new(vor.outputs["Distance"], ramp.inputs["Fac"])
+    mul = nt.nodes.new("ShaderNodeMix")
+    mul.data_type = "RGBA"
+    mul.blend_type = "MULTIPLY"
+    mul.inputs["Factor"].default_value = 1.0
+    nt.links.new(base, mul.inputs[6])
+    nt.links.new(ramp.outputs["Color"], mul.inputs[7])
+    nt.links.new(mul.outputs[2], bsdf.inputs["Base Color"])
+    return m
+
+
 def build_rocking_horse(cfg, **_):
-    dapple = _material("Dapple", (0.8, 0.78, 0.74), rough=0.4, coat=0.5, voronoi=True, noise_scale=14,
-                       ramp=((0.4, 0.39, 0.38), (0.86, 0.84, 0.8)))
-    wood = _material("RockerWood", (0.25, 0.1, 0.07), rough=0.35, coat=0.4, ramp=((0.13, 0.05, 0.04), (0.32, 0.13, 0.08)), noise_scale=14)
-    hair = _material("Hair", (0.08, 0.07, 0.07), rough=0.7, ramp=((0.03, 0.03, 0.03), (0.18, 0.16, 0.15)), noise_scale=60)
-    leather = _material("Saddle", (0.35, 0.05, 0.05), rough=0.35, coat=0.5)
+    dapple = _dapple_photo()
+    wood = photo("RockerWood", "dark_wood", tint=(0.8, 0.6, 0.55), scale=3, coat=0.4)
+    hair = photo("Hair", "curly_teddy_natural", tint=(0.22, 0.2, 0.2), scale=12)
+    leather = photo("Saddle", "leather_red_02", scale=8, coat=0.3)
+    reins = photo("Reins", "brown_leather", scale=10)
     black = _material("Eye", (0.01, 0.01, 0.01), rough=0.1, coat=1.0)
-    gold = _material("Trim", (0.75, 0.55, 0.25), rough=0.3, metal=1.0)
+    gold = photo("Trim", "metal_plate", mix_color=BRASS, scale=30, metal=0.6, rough=0.3)
     objs = []
     R = 1.4
 
@@ -240,8 +332,8 @@ def build_rocking_horse(cfg, **_):
     for y in (-0.047, 0.047):
         objs.append(sphere((0.39, y, 0.8), (1, 0.6, 1), 0.014, black))
     # Bridle, reins and saddle
-    objs.append(torus((0.45, 0, 0.71), 0.05, 0.006, leather, rot=(0, math.radians(-50), 0)))
-    objs.append(tube_path([(0.43, -0.05, 0.71), (0.28, -0.08, 0.66), (0.1, -0.1, 0.66)], 0.005, leather))
+    objs.append(torus((0.45, 0, 0.71), 0.05, 0.006, reins, rot=(0, math.radians(-50), 0)))
+    objs.append(tube_path([(0.43, -0.05, 0.71), (0.28, -0.08, 0.66), (0.1, -0.1, 0.66)], 0.005, reins))
     objs.append(sphere((-0.03, 0, 0.6), (0.12, 0.13, 0.03), 1.0, leather))
     objs.append(limb((-0.03, -0.12, 0.59), (-0.03, -0.13, 0.48), 0.004, gold))
     objs.append(torus((-0.03, -0.13, 0.465), 0.018, 0.004, gold, rot=(math.pi / 2, 0, 0)))
@@ -256,11 +348,11 @@ def build_rocking_horse(cfg, **_):
 
 
 def build_hatch(cfg, **_):
-    gold = _material("HatchGold", (0.72, 0.52, 0.24), rough=0.32, metal=1.0, ramp=((0.42, 0.3, 0.12), (0.78, 0.58, 0.28)), noise_scale=25)
+    gold = photo("HatchGold", "metal_plate", mix_color=BRASS, scale=8, metal=0.6, rough=0.3)
     void = _material("Void", (0.004, 0.004, 0.006), rough=1.0)
-    vinyl = _material("SlideVinyl", (0.55, 0.42, 0.12), rough=0.25, coat=0.6)
-    iron = _material("Iron", (0.22, 0.21, 0.2), rough=0.55, metal=1.0, ramp=((0.08, 0.06, 0.05), (0.3, 0.28, 0.26)), noise_scale=30)
-    lockbrass = _material("LockBrass", (0.7, 0.5, 0.2), rough=0.35, metal=1.0)
+    vinyl = photo("SlideVinyl", "leather_white", tint=(0.75, 0.6, 0.25), scale=6, coat=0.6, rough=0.3)
+    iron = photo("Iron", "rusty_metal", tint=(0.6, 0.55, 0.5), scale=20, metal=0.8)
+    lockbrass = photo("LockBrass", "metal_plate", mix_color=BRASS, scale=25, metal=0.6, rough=0.35)
     w, h_rect = 0.4, 0.6
     arch = [(-w, 0.0, 0.0), (-w, 0.0, h_rect)]
     arch += [(-w * math.cos(math.radians(a)), 0.0, h_rect + w * math.sin(math.radians(a))) for a in range(10, 171, 10)]
@@ -299,10 +391,10 @@ def build_hatch(cfg, **_):
 def build_child(cfg, **_):
     porcelain = _material("Porcelain", (0.88, 0.78, 0.72), rough=0.3, sss=0.25, coat=0.35)
     cheek = _material("Cheek", (0.82, 0.48, 0.46), rough=0.4, sss=0.2)
-    gown = _material("Gown", (0.84, 0.82, 0.8), rough=0.8, ramp=((0.6, 0.58, 0.58), (0.88, 0.86, 0.84)), noise_scale=30)
-    lace = _material("Lace", (0.92, 0.9, 0.86), rough=0.7)
-    hair = _material("ChildHair", (0.2, 0.12, 0.07), rough=0.4, coat=0.25, ramp=((0.08, 0.05, 0.03), (0.3, 0.18, 0.1)), noise_scale=120)
-    shoes = _material("Shoes", (0.05, 0.04, 0.04), rough=0.25, coat=0.8)
+    gown = photo("Gown", "rough_linen", tint=(1.45, 1.42, 1.36), scale=9)
+    lace = photo("Lace", "rough_linen", tint=(1.6, 1.57, 1.5), scale=20)
+    hair = photo("ChildHair", "curly_teddy_natural", tint=(0.42, 0.26, 0.16), scale=14)
+    shoes = photo("Shoes", "brown_leather", tint=(0.25, 0.22, 0.22), scale=20, coat=0.8)
     eye = _material("DollEye", (0.03, 0.025, 0.03), rough=0.04, coat=1.0)
     white = _material("EyeWhite", (0.85, 0.83, 0.8), rough=0.2, coat=0.6)
     lips = _material("Lips", (0.55, 0.14, 0.15), rough=0.35)
@@ -390,7 +482,21 @@ def build_painting(cfg, import_model, render_still, **_):
     return frame_root, frame_meshes, {"painting": frame_meshes}
 
 
+def build_shelf(cfg, **_):
+    """A dark wooden wall shelf on brass brackets (sized to the shelf hitbox: 1.84 x 0.16)."""
+    wood = photo("ShelfWood", "dark_wood", tint=(0.85, 0.65, 0.55), scale=2, coat=0.3)
+    brass = photo("Bracket", "metal_plate", mix_color=BRASS, scale=12, metal=0.6, rough=0.35)
+    objs = [box((0, 0, 0.08), (1.84, 0.36, 0.16), wood, bevel=0.02)]
+    objs.append(box((0, -0.17, 0.0), (1.84, 0.04, 0.04), wood, bevel=0.012))  # front lip moulding
+    # Carved corbels under each end, with brass finials
+    for x in (-0.72, 0.72):
+        objs.append(limb((x, 0.06, 0.0), (x, 0.06, -0.26), 0.085, wood, r_end=0.03, verts=8))
+        objs.append(sphere((x, 0.06, -0.28), (1, 1, 1), 0.035, brass))
+    return _finish({"shelf": objs})
+
+
 BUILDERS = {
+    "shelf": build_shelf,
     "key": build_key,
     "rocking_horse": build_rocking_horse,
     "hatch": build_hatch,

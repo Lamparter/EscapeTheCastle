@@ -54,7 +54,10 @@ export const FIXED: FixedPiece[] = [
 		id: "nightstand", kind: "nightstand", x: NIGHTSTAND_LEFT + 4, y: FLOOR_Y - 76, w: Math.round(SPRITES.nightstand.w - 8), h: 76, bounce: 0.3,
 		art: { sprite: "nightstand", left: NIGHTSTAND_LEFT, bottom: FLOOR_Y + 2 },
 	},
-	{ id: "shelf", kind: "shelf", x: 1672, y: 250, w: WALL_R - 1672, h: 16, bounce: 0.3 },
+	{
+		id: "shelf", kind: "shelf", x: 1672, y: 250, w: WALL_R - 1672, h: 16, bounce: 0.3,
+		art: { sprite: "shelf", left: 1668, bottom: 248 + SPRITES.shelf.h },
+	},
 ];
 
 export type ItemKind = "chest" | "stool" | "pillow" | "key";
@@ -91,22 +94,24 @@ export const ITEMS: ItemDef[] = [
 /** Touching this rect (on the shelf) while carrying the key takes the player down the slide. */
 export const HATCH: Rect = { x: 1748, y: 148, w: 86, h: 102 };
 
-/** The chandelier sprite hangs by its chain from (x, CEIL_Y); len = distance to its bottom finial. */
-export const CHANDELIER = { x: 900, len: SPRITES.chandelier.h };
-/** Bumping into the chandelier's candle tier or the dangling key knocks the key loose. */
-export const CHANDELIER_HIT: Rect = { x: 834, y: CEIL_Y + 96, w: 132, h: 120 };
+/** The chandelier sprite hangs by its chain from the ceiling rose at (x, y); len = distance to its bottom finial. */
+export const CHANDELIER = { x: 900, y: 20, len: SPRITES.chandelier.h };
+/** Bumping into the chandelier's candle tier or the dangling key knocks the key loose (bottom edge at y=300). */
+export const CHANDELIER_HIT: Rect = { x: 822, y: 150, w: 156, h: 150 };
 /** Where the key hangs (centre), relative to the chandelier's bottom finial. */
 export const KEY_HANG = { dx: 0, dy: 30 };
 
-export const PLAYER_START = { x: 560, y: FLOOR_Y - 22 };
+/** Player hitbox half-size (1.5x the original child). */
+export const PLAYER_SIZE = { hw: 19, hh: 33 };
+export const PLAYER_START = { x: 600, y: FLOOR_Y - PLAYER_SIZE.hh };
 
 export const ROOM_TITLE = "The Nursery";
 export const ROOM_NUMBER = "Room I";
 
-/** Back-wall art layout for the procedural castle renderer. */
-export const CASTLE_ART_TOP = 140;
-export const CASTLE_WINDOWS = [
+/** Dollhouse room art: theme (wallpaper/colours), how far the art extends above y=0, and back-wall windows. */
+export const ROOM_THEME = "nursery";
+export const ROOM_ART_TOP = 140;
+export const ROOM_WINDOWS = [
 	{ x: 610, y: 170, w: 170, h: 210, moon: true },
 	{ x: 1485, y: 160, w: 130, h: 150 },
 ];
-export const CASTLE_BUTTRESSES = [420, 800, 1290, 1680];

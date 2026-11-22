@@ -14,7 +14,22 @@ All from [Poly Haven](https://polyhaven.com), released under CC0 (public domain)
 - [Fancy Picture Frame 02](https://polyhaven.com/a/fancy_picture_frame_02) by Rob Tuytel and Rico Cilliers (the portrait's frame)
 - [Marble Bust 01](https://polyhaven.com/a/marble_bust_01) by Rico Cilliers (re-rendered as the portrait's sitter)
 
-The player, key, rocking horse and slide hatch are modelled procedurally for this game (`tools/procedural.py`).
+The player, key, rocking horse, slide hatch and wall shelf are modelled procedurally for this game (`tools/procedural.py`) and textured with the photo textures below.
+
+## Photo textures
+
+All from [Poly Haven](https://polyhaven.com) (CC0). The herringbone parquet is the floor; the rest texture the rendered models.
+
+- [Brown Leather](https://polyhaven.com/a/brown_leather) by Rob Tuytel
+- [Curly Teddy Natural](https://polyhaven.com/a/curly_teddy_natural) by colormass, Rico Cilliers
+- [Dark Wood](https://polyhaven.com/a/dark_wood) by Dario Barresi, Dimitrios Savva, Rico Cilliers
+- [Herringbone Parquet](https://polyhaven.com/a/herringbone_parquet) by Jenelle van Heerden, Sergej Majboroda
+- [Leather Red 02](https://polyhaven.com/a/leather_red_02) by Rob Tuytel
+- [Leather White](https://polyhaven.com/a/leather_white) by Rob Tuytel
+- [Metal Plate](https://polyhaven.com/a/metal_plate) by Rob Tuytel
+- [Painted Plaster Wall](https://polyhaven.com/a/painted_plaster_wall) by Amal Kumar
+- [Rough Linen](https://polyhaven.com/a/rough_linen) by colormass, Rico Cilliers
+- [Rusty Metal](https://polyhaven.com/a/rusty_metal) by Rob Tuytel
 
 ## Engine
 

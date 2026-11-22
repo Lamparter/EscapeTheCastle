@@ -10,9 +10,9 @@
   "model": "GothicCabinet_01"
  },
  "chandelier": {
-  "w": 128.8,
-  "h": 171.7,
-  "model": "Chandelier_03"
+  "w": 181.8,
+  "h": 242.4,
+  "source": "Chandelier_03"
  },
  "chest": {
   "w": 131.3,
@@ -60,13 +60,18 @@
   "source": "hatch"
  },
  "player": {
-  "w": 23.1,
-  "h": 50.5,
+  "w": 35.0,
+  "h": 76.8,
   "source": "child"
  },
  "player_blink": {
-  "w": 23.1,
-  "h": 50.5,
+  "w": 35.0,
+  "h": 76.8,
   "source": "child"
+ },
+ "shelf": {
+  "w": 191.9,
+  "h": 50.4,
+  "source": "shelf"
  }
 }

@@ -26,7 +26,7 @@ export const PHYS = {
 	jumpBuffer: 0.15,
 	/** You can still ground-jump this long after touching a surface. */
 	contactGrace: 0.08,
-	/** Hard floor landings shove you sideways by up to this much: the castle is uneven and chaotic. */
+	/** Hard floor landings shove you sideways by up to this much: the bouncy floor is uneven and chaotic. */
 	floorChaos: 80,
 	/** Below this impact speed a landing settles instead of bouncing again. */
 	settleSpeed: 110,
@@ -38,7 +38,7 @@ export const PHYS = {
 	substeps: 4,
 };
 
-/** Dark, desaturated bouncy-castle palette. Call once a KAPLAY context exists. */
+/** Dark, desaturated UI/effects palette. Call once a KAPLAY context exists. */
 export function makePalette(k: KAPLAYCtx) {
 	return {
 		void: k.rgb(6, 5, 9),

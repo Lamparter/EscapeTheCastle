@@ -1,9 +1,9 @@
 import type { KAPLAYCtx, Vec2 } from "kaplay";
-import { FLOOR_ART_HEIGHT, FLOOR_ART_OFFSET } from "./castleArt";
+import { FLOOR_ART_HEIGHT, FLOOR_ART_OFFSET } from "./dollhouseArt";
 import { FONT, PHYS, VIEW_HEIGHT, type Palette } from "./config";
 import { drawItem, drawPlayer, makeRoomArt } from "./draw";
 import {
-	CASTLE_ART_TOP, CHANDELIER_HIT, FIXED, FLOOR_Y, HATCH, ITEMS, KEY_HANG, PLAYER_START, ROOM, ROOM_NUMBER, ROOM_TITLE,
+	CHANDELIER_HIT, FIXED, FLOOR_Y, HATCH, ITEMS, KEY_HANG, PLAYER_SIZE, PLAYER_START, ROOM, ROOM_ART_TOP, ROOM_NUMBER, ROOM_TITLE,
 	type ItemDef,
 } from "./level1";
 import { type Body, type Rect, type Solid, bodyRect, findSupport, overlaps, stepBody } from "./physics";
@@ -80,7 +80,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 		// ---------- State ----------
 		const player: Body = {
-			x: PLAYER_START.x, y: PLAYER_START.y, hw: 13, hh: 22,
+			x: PLAYER_START.x, y: PLAYER_START.y, ...PLAYER_SIZE,
 			vx: 0, vy: 0, grounded: true, ground: FIXED[0],
 		};
 		let facing = 1;
@@ -409,7 +409,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					if (im.solid.id === "floor") {
 						floorWave.hit(player.x, im.speed);
 						shockwave(player.x, im.speed);
-						// The castle floor is uneven: hard landings throw you sideways a little.
+						// The bouncy floor is uneven: hard landings throw you sideways a little.
 						if (!player.grounded && im.speed > 260 && !digging()) {
 							player.vx += (Math.random() * 2 - 1) * PHYS.floorChaos * Math.min(1, im.speed / 700);
 						}
@@ -487,13 +487,12 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		k.add([k.z(0), {
 			id: "worldArt",
 			draw() {
-				k.drawSprite({ sprite: "castleRoom", pos: v(0, -CASTLE_ART_TOP), width: ROOM.w, height: ROOM.h + CASTLE_ART_TOP });
+				k.drawSprite({ sprite: "roomArt", pos: v(0, -ROOM_ART_TOP), width: ROOM.w, height: ROOM.h + ROOM_ART_TOP });
 				art.portrait(player.x, player.y);
 				art.hatch(t, phase === "sliding", phase !== "sliding");
 				art.chandelier(t, swing, keyOnChandelier);
 				for (const f of FIXED) {
 					if (f.art) art.placed(f.art);
-					else if (f.kind === "shelf") art.shelf(f);
 				}
 
 				// Rippling floor: the floor art sliced into strips, each offset by the wave.
@@ -503,7 +502,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					if (x >= ROOM.w) break;
 					const sw = Math.min(w, ROOM.w - x);
 					k.drawSprite({
-						sprite: "castleFloor",
+						sprite: "floorArt",
 						pos: v(x, FLOOR_Y - FLOOR_ART_OFFSET + floorWave.d[i]),
 						width: sw + 0.6,
 						height: FLOOR_ART_HEIGHT,
@@ -631,7 +630,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			k.drawText({ text: "E carry   R restart   Esc menu", pos: v(W - m, m + 34 * u), size: 12 * u, color: pal.textDim, font: FONT, anchor: "topright" });
 
 			if (anger > 0.6) {
-				k.drawText({ text: "Something beneath the vinyl stirs...", pos: v(W / 2, m + 8 * u), size: 15 * u, color: pal.monster, font: FONT, anchor: "top", opacity: (anger - 0.6) * 3 });
+				k.drawText({ text: "Something beneath the floorboards stirs...", pos: v(W / 2, m + 8 * u), size: 15 * u, color: pal.monster, font: FONT, anchor: "top", opacity: (anger - 0.6) * 3 });
 			}
 		}
 

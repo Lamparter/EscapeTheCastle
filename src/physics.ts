@@ -1,5 +1,5 @@
 /**
- * Tiny custom AABB physics. KAPLAY's built-in body() stops on contact; a bouncy castle
+ * Tiny custom AABB physics. KAPLAY's built-in body() stops on contact; a bouncy room
  * needs restitution, so the player and furniture are simulated here instead.
  */
 

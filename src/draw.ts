@@ -1,19 +1,14 @@
-import type { Color, KAPLAYCtx } from "kaplay";
+import type { KAPLAYCtx } from "kaplay";
 import type { Palette } from "./config";
-import { CEIL_Y, CHANDELIER, FLOOR_Y, HATCH, KEY_HANG, type SpriteArt } from "./level1";
+import { CHANDELIER, FLOOR_Y, HATCH, KEY_HANG, type SpriteArt } from "./level1";
 import { SPRITES, type SpriteName } from "./sprites.generated";
-import type { Rect } from "./physics";
 
 /**
- * Room art: rendered sprites (tools/render_sprites.py) plus a few shape-drawn bits (shelf, glows).
+ * Room objects: photoreal rendered sprites (tools/render_sprites.py) plus light effects (glows, the portrait's pupils).
  * Every function draws in world coordinates.
  */
 export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 	const v = k.vec2;
-
-	function rect(x: number, y: number, w: number, h: number, color: Color, extra: object = {}) {
-		k.drawRect({ pos: v(x, y), width: w, height: h, color, ...extra });
-	}
 
 	/** Where the old portrait hangs (its top-left corner) and where its blank marble eyes are on the sprite. */
 	const PORTRAIT = { x: 1086, y: 186 };
@@ -45,7 +40,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 	/** World position of the chandelier's bottom finial for a given extra swing angle (radians). */
 	function chandelierPos(t: number, swing: number) {
 		const a = swingAngle(t, swing);
-		return v(CHANDELIER.x + Math.sin(a) * CHANDELIER.len, CEIL_Y + Math.cos(a) * CHANDELIER.len);
+		return v(CHANDELIER.x + Math.sin(a) * CHANDELIER.len, CHANDELIER.y + Math.cos(a) * CHANDELIER.len);
 	}
 
 	/** A rendered furniture sprite standing on its floor line. */
@@ -66,7 +61,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 			k.drawCircle({ pos: v(kx + 10, ky - 4), radius: 2 + Math.abs(Math.sin(t * 3)) * 2, color: pal.flame, opacity: 0.7 });
 		}
 		k.pushTransform();
-		k.pushTranslate(CHANDELIER.x, CEIL_Y);
+		k.pushTranslate(CHANDELIER.x, CHANDELIER.y);
 		k.pushRotate(-k.rad2deg(a));
 		k.drawSprite({ sprite: spriteKey("chandelier"), pos: v(0, 0), width: s.w, height: s.h, anchor: "top" });
 		// Flickering glow over the candle tips (positions measured on the rendered sprite).
@@ -80,15 +75,6 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.popTransform();
 	}
 
-	function shelf(s: Rect) {
-		rect(s.x, s.y, s.w, s.h, pal.wood);
-		rect(s.x, s.y + s.h, s.w, 4, pal.woodDark);
-		// Brackets
-		for (const bx of [s.x + 20, s.x + s.w - 40]) {
-			k.drawPolygon({ pts: [v(bx, s.y + s.h), v(bx + 20, s.y + s.h), v(bx + 20, s.y + s.h + 30)], color: pal.woodDark });
-		}
-	}
-
 	function rockingHorse(t: number, sink = 0) {
 		const s = SPRITES.rocking_horse;
 		const rock = Math.sin(t * 0.6) * 0.06;
@@ -99,7 +85,7 @@ export function makeRoomArt(k: KAPLAYCtx, pal: Palette) {
 		k.popTransform();
 	}
 
-	return { portrait, hatch, chandelier, chandelierPos, placed, shelf, rockingHorse };
+	return { portrait, hatch, chandelier, chandelierPos, placed, rockingHorse };
 }
 
 /** KAPLAY asset name for a rendered sprite. */

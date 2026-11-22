@@ -2,7 +2,7 @@
 // Size of each rendered sprite in game units; the pivot is the bottom centre.
 export const SPRITES = {
 	bed: { file: "sprites/nursery/bed.png", w: 353.5, h: 258.1 },
-	chandelier: { file: "sprites/nursery/chandelier.png", w: 128.8, h: 171.7 },
+	chandelier: { file: "sprites/nursery/chandelier.png", w: 181.8, h: 242.4 },
 	chest: { file: "sprites/nursery/chest.png", w: 131.3, h: 87.1 },
 	hatch: { file: "sprites/nursery/hatch.png", w: 113.1, h: 131.1 },
 	hatch_lock: { file: "sprites/nursery/hatch_lock.png", w: 113.1, h: 131.1 },
@@ -10,9 +10,10 @@ export const SPRITES = {
 	nightstand: { file: "sprites/nursery/nightstand.png", w: 71.0, h: 80.8 },
 	painting: { file: "sprites/nursery/painting.png", w: 147.1, h: 171.7 },
 	pillow: { file: "sprites/nursery/pillow.png", w: 80.8, h: 41.6 },
-	player: { file: "sprites/nursery/player.png", w: 23.1, h: 50.5 },
-	player_blink: { file: "sprites/nursery/player_blink.png", w: 23.1, h: 50.5 },
+	player: { file: "sprites/nursery/player.png", w: 35.0, h: 76.8 },
+	player_blink: { file: "sprites/nursery/player_blink.png", w: 35.0, h: 76.8 },
 	rocking_horse: { file: "sprites/nursery/rocking_horse.png", w: 151.5, h: 116.2 },
+	shelf: { file: "sprites/nursery/shelf.png", w: 191.9, h: 50.4 },
 	stool: { file: "sprites/nursery/stool.png", w: 47.4, h: 60.6 },
 	wardrobe: { file: "sprites/nursery/wardrobe.png", w: 219.3, h: 282.8 },
 } as const;

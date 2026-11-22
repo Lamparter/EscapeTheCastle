@@ -1,6 +1,6 @@
 # Escape The Castle
 
-A horror game inside a bouncy castle. Low gravity, a very bouncy floor and something lurking under the vinyl: bounce your way out of each room.
+A horror game inside a bouncy Victorian dollhouse. Low gravity, a very bouncy floor and something lurking under the floorboards: bounce your way out of each room.
 This is the first mock-up: Room I (The Nursery, the tutorial).
 
 ## Controls
@@ -21,8 +21,8 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/game.ts` - the room scene: input, walking/jumping/springing, carrying, the key puzzle, camera, HUD, pause menu
 - `src/physics.ts` - small AABB physics with restitution (bouncy surfaces)
 - `src/level1.ts` - The Nursery layout and puzzle data
-- `src/castleArt.ts` - procedural vector art for the bouncy castle interior (rendered once to canvases)
-- `src/draw.ts` - placeholder furniture/character art drawn with shapes (to be replaced by hand-drawn sprites)
+- `src/dollhouseArt.ts` - the room as a cut-away Victorian dollhouse room: vector wallpaper, mouldings and windows, plus a photo-textured parquet floor (each room has its own theme)
+- `src/draw.ts` - draws the rendered sprites (furniture, painting, hatch, player) and light effects
 - `src/config.ts` - tuning values and the colour palette
 - `src/sprites.generated.ts` - sizes of the rendered furniture sprites (generated)
 - `tools/` - model download and Blender sprite-render scripts
@@ -50,7 +50,7 @@ python tools/fetch_polyhaven.py
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P tools/render_sprites.py
 ```
 
-Pieces with no suitable free model (player, key, rocking horse, hatch) are built procedurally in `tools/procedural.py`. The first command downloads the models listed in `tools/sprites.json` into `art/source/` (git-ignored). The second renders them into `public/sprites/nursery/` with a shared camera, lighting and colour grade, and regenerates `src/sprites.generated.ts` (sprite sizes in game units). Add names after `--` to re-render only some sprites. Credits are in `CREDITS.md`.
+Pieces with no suitable free model (player, key, rocking horse, hatch) are built procedurally in `tools/procedural.py`. The first command downloads the models and photo textures listed in `tools/sprites.json` into `art/source/` (git-ignored). The second renders them into `public/sprites/nursery/` with a shared camera, lighting and colour grade, and regenerates `src/sprites.generated.ts` (sprite sizes in game units). Add names after `--` to re-render only some sprites. Credits are in `CREDITS.md`.
 
 ## Distribution
 
