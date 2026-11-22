@@ -5,7 +5,7 @@
 		"build": "vite build",
 		"dev": "vite",
 		"preview": "vite preview",
-		"zip": "pnpm run build && tar -a -cf game.zip -C dist .",
+		"zip": "pnpm run build && node tools/zip.mjs",
 		"check": "tsc"
 	},
 	"dependencies": {

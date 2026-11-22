@@ -688,8 +688,15 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				if (fxOn) {
 					// Vignette centred on the player
 					const flick = dim > 0 ? 0.75 + 0.2 * Math.sin(t * 60) : 1;
-					const size = H * 5 * flick;
+					// The darkness breathes, and closes in as the monster grows angrier
+					const size = H * 5 * flick * (1 + 0.035 * Math.sin(t * 0.7) - 0.12 * anger);
 					k.drawSprite({ sprite: "vignette", pos: ps, width: size, height: size, anchor: "center" });
+					// Old-film grain crawling over everything
+					k.drawSprite({ sprite: "grain", pos: v(-Math.random() * 256, -Math.random() * 256), width: W + 256, height: H + 256, tiled: true, opacity: 0.1 + 0.08 * anger });
+					// Now and then the room "hitches": a single blood-dark frame, like a skipped reel
+					if (t % 9.7 < 0.06 || (anger > 0.4 && t % 4.3 < 0.04)) {
+						k.drawSprite({ sprite: "shade", pos: v(0, 0), width: W, height: H, color: k.rgb(90, 0, 8), opacity: 0.45 });
+					}
 					// The floor's underside sinks into the darkness (below the floor's front edge, behind nothing).
 					const fy = k.toScreen(v(0, FLOOR_Y + 8)).y;
 					if (fy < H) k.drawSprite({ sprite: "floorShade", pos: v(0, fy), width: W, height: Math.max(H - fy, 90 * u) });

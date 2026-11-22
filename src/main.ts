@@ -49,6 +49,16 @@ k.loadSprite("glow", effectCanvas(128, (ctx) => {
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, 128, 128);
 }));
+/** Film grain (an effect: random monochrome speckle), tiled over the screen with a jittering offset. */
+k.loadSprite("grain", effectCanvas(256, (ctx) => {
+	const img = ctx.createImageData(256, 256);
+	for (let i = 0; i < img.data.length; i += 4) {
+		const g = Math.random() < 0.5 ? 0 : 255;
+		img.data[i] = img.data[i + 1] = img.data[i + 2] = g;
+		img.data[i + 3] = Math.random() * 120;
+	}
+	ctx.putImageData(img, 0, 0);
+}));
 /** Plain darkness for fades and blackouts. */
 k.loadSprite("shade", effectCanvas(4, (ctx) => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 4, 4); }));
 /** Vertical fade that sinks the space beneath the floor into darkness, where the monster lurks. */
@@ -147,10 +157,64 @@ function makeBackdrop() {
 }
 
 /** Gilt lettering with a carved shadow. */
+/**
+ * Headings are rasterised at the screen's real pixel size (KAPLAY's text atlas is 64 px, so big
+ * text drawn with drawText is upscaled and blurry). Each (text, size, style) is cached as a sprite;
+ * gilt headings get a real gold gradient and a carved shadow.
+ */
+const PIXEL_DENSITY = Math.min(2, window.devicePixelRatio || 1);
+const crispCache = new Map<string, { w: number; h: number }>();
+function crispSprite(text: string, size: number, gilt: boolean, rgb: [number, number, number], spacing: number) {
+	const px = Math.max(8, Math.round(size * PIXEL_DENSITY));
+	const key = `crisp:${gilt ? "g" : rgb.join(",")}:${px}:${Math.round(spacing * PIXEL_DENSITY)}:${text}`;
+	let info = crispCache.get(key);
+	if (!info) {
+		const c = document.createElement("canvas");
+		const ctx = c.getContext("2d")!;
+		const font = `${px}px ${FONT}`;
+		ctx.font = font;
+		const sp = spacing * PIXEL_DENSITY;
+		const chars = [...text];
+		const widths = chars.map((ch) => ctx.measureText(ch).width);
+		const tw = widths.reduce((a, b) => a + b, 0) + sp * Math.max(0, chars.length - 1);
+		const pad = Math.ceil(px * 0.15);
+		c.width = Math.ceil(tw) + pad * 2;
+		c.height = Math.ceil(px * 1.35) + pad * 2;
+		ctx.font = font;
+		ctx.textBaseline = "middle";
+		const fill = (style: string | CanvasGradient, dx: number, dy: number) => {
+			ctx.fillStyle = style;
+			let cx = pad + dx;
+			chars.forEach((ch, i) => { ctx.fillText(ch, cx, c.height / 2 + dy); cx += widths[i] + sp; });
+		};
+		fill("rgba(0,0,0,0.8)", px * 0.03, px * 0.05); // carved shadow
+		if (gilt) {
+			const g = ctx.createLinearGradient(0, c.height / 2 - px * 0.5, 0, c.height / 2 + px * 0.5);
+			g.addColorStop(0, "#f7e2a8");
+			g.addColorStop(0.45, "#d9a95a");
+			g.addColorStop(0.55, "#b98535");
+			g.addColorStop(1, "#f0cd84");
+			fill(g, 0, 0);
+		} else {
+			fill(`rgb(${rgb.join(",")})`, 0, 0);
+		}
+		k.loadSprite(key, c);
+		info = { w: c.width / PIXEL_DENSITY, h: c.height / PIXEL_DENSITY };
+		crispCache.set(key, info);
+	}
+	return { key, ...info };
+}
+
 function giltText(text: string, x: number, y: number, size: number, opts: { color?: ReturnType<typeof k.rgb>; opacity?: number; letterSpacing?: number } = {}) {
 	const o = opts.opacity ?? 1;
-	k.drawText({ text, pos: k.vec2(x + size * 0.035, y + size * 0.05), size, color: k.rgb(0, 0, 0), opacity: 0.75 * o, anchor: "center", font: FONT, letterSpacing: opts.letterSpacing });
-	k.drawText({ text, pos: k.vec2(x, y), size, color: opts.color ?? GILT, opacity: o, anchor: "center", font: FONT, letterSpacing: opts.letterSpacing });
+	const col = opts.color;
+	const s = crispSprite(text, size, !col, col ? [col.r, col.g, col.b] : [0, 0, 0], opts.letterSpacing ?? 0);
+	if (!k.getSprite(s.key)?.data) {
+		// First frame, while the sprite registers: fall back to plain text
+		k.drawText({ text, pos: k.vec2(x, y), size, color: col ?? GILT, opacity: o, anchor: "center", font: FONT, letterSpacing: opts.letterSpacing });
+		return;
+	}
+	k.drawSprite({ sprite: s.key, pos: k.vec2(Math.round(x - s.w / 2), Math.round(y - s.h / 2)), width: s.w, height: s.h, opacity: o });
 }
 
 k.scene("title", () => {
