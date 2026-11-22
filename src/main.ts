@@ -3,6 +3,7 @@ import { FONT, VIEW_HEIGHT, makePalette } from "./config";
 import { registerGameScene } from "./game";
 import { spriteKey } from "./sprites";
 import { SPRITES, type SpriteName } from "./sprites.generated";
+import { loadAudio, playMusic, toggleMute } from "./audio";
 import { glow } from "./draw";
 import { makeUi } from "./ui";
 
@@ -79,6 +80,7 @@ k.loadSprite("floorShade", (() => {
 
 // Rendered sprites (furniture, room, floor, player, ...) and photo textures for the UI.
 for (const name of Object.keys(SPRITES) as SpriteName[]) k.loadSprite(spriteKey(name), SPRITES[name].file);
+loadAudio(k);
 k.loadSprite("ui_wood", "textures/dark_wood_diff.jpg");
 k.loadSprite("ui_brass", "textures/metal_plate_diff.jpg");
 
@@ -220,6 +222,8 @@ function giltText(text: string, x: number, y: number, size: number, opts: { colo
 
 k.scene("title", () => {
 	k.setCursor("default");
+	playMusic(k, "music_title", 0.7);
+	k.onKeyPress("m", () => toggleMute());
 	const ui = makeUi(k, pal);
 	const bg = makeBackdrop();
 	let t = 0, showControls = false;
@@ -263,6 +267,8 @@ k.scene("title", () => {
 
 k.scene("escaped", ({ time }: { time: number }) => {
 	k.setCursor("default");
+	playMusic(k, "music_title", 0.7);
+	k.onKeyPress("m", () => toggleMute());
 	const ui = makeUi(k, pal);
 	const bg = makeBackdrop();
 	const secs = Math.floor(time);

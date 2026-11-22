@@ -6,6 +6,7 @@ import {
 	CHANDELIER, FIXED, FLOOR_Y, FURNITURE, HATCH, ITEMS, PLAYER_SIZE, PLAYER_START, ROOM, ROOM_NUMBER, ROOM_TITLE,
 	type ItemDef,
 } from "./level1";
+import { musicLevel, playMusic, sfx, toggleMute } from "./audio";
 import { type Body, type Rect, type Solid, bodyRect, findSupport, overlaps, stepBody } from "./physics";
 import { spriteKey, spriteOrigin, spriteSolids } from "./sprites";
 import { SPRITES } from "./sprites.generated";
@@ -71,6 +72,8 @@ function makeFloorWave(width: number, strip: number) {
 
 export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 	k.scene("game", () => {
+		playMusic(k, "music_game", 0.6);
+		k.onKeyPress("m", () => toggleMute());
 		const v = k.vec2;
 		const art = makeRoomArt(k);
 		const ui = makeUi(k, pal);
@@ -547,6 +550,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 						ghost.scale = 1;
 						ghost.state = "in";
 						k.shake(4 + 6 * anger); // the room shudders as it arrives
+						sfx(k, "sting", 0.55 + 0.35 * anger, -300 + Math.random() * 300); // a low hit as it arrives
 					}
 					break;
 				case "in":
@@ -559,7 +563,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					ghost.x += Math.sign(player.x - ghost.x) * 6 * dt;
 					if (ghost.t <= 0) {
 						// Sometimes, instead of fading away, it rushes at her...
-						if (Math.random() < 0.1 + 0.18 * anger) { ghost.state = "lunge"; ghost.t = 0; monsterPulse = 1; }
+						if (Math.random() < 0.1 + 0.18 * anger) { ghost.state = "lunge"; ghost.t = 0; monsterPulse = 1; sfx(k, "scream", 1); musicLevel(0.25); }
 						else ghost.state = "out";
 					}
 					break;
@@ -580,6 +584,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 						ghost.t = (9 + Math.random() * 9) * (1 - 0.5 * anger);
 						lungeDark = 1;
 						lungeHold = 0.4;
+							k.wait(1.2, () => musicLevel(1));
 						anger = Math.min(0.85, anger + 0.1);
 					}
 					break;

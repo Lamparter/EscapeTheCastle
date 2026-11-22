@@ -42,6 +42,15 @@ All from [Poly Haven](https://polyhaven.com) (CC0). They texture the rendered ro
 - [Crepe Satin](https://polyhaven.com/a/crepe_satin) by colormass, Rico Cilliers
 - [Crepe Georgette](https://polyhaven.com/a/crepe_georgette) by colormass, Rico Cilliers
 
+## Music and sound
+
+All from [OpenGameArt](https://opengameart.org), released under CC0 (public domain).
+
+- In-game music: [Horror Atmosphere](https://opengameart.org/content/horror-atmosphere) ("Post Apocalyptic Wastelands") by Juhani Junkala (SubspaceAudio)
+- Title music: [Creepy](https://opengameart.org/content/creepy) by TokyoGeisha
+- The monster's scream: [Horror scream1](https://opengameart.org/content/horror-scream1) by Vinrax
+- The monster's arrival sting: [Horror Hit Soundpack 1](https://opengameart.org/content/horror-hit-soundpack-1) by psychhead_ (bassy_9)
+
 ## Engine
 
 - [KAPLAY](https://kaplayjs.com) (MIT)
