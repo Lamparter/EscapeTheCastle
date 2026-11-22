@@ -5,6 +5,8 @@ Reads tools/sprites.json:
   - models (each sprite's "model" / "extraModels") -> art/source/polyhaven/<id>/ as glTF (1k textures)
   - "textures"     -> art/source/textures/<id>/ (diffuse, roughness, normal; 1k JPG) for Blender materials
   - "gameTextures" -> public/textures/<id>_diff.jpg (diffuse only) for art drawn in the game itself
+  - "skyPhotos"    -> art/source/images/<id>.jpg (Poly Haven HDRI, tone-mapped photo) for window views
+  - "images"       -> art/source/images/<name>.jpg from a direct URL (e.g. public-domain museum scans)
 art/source/ is git-ignored; re-run this script to restore it. Writes CREDITS.txt files listing authors.
 """
 import json
@@ -14,6 +16,7 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MODELS = ROOT / "art" / "source" / "polyhaven"
 TEXTURES = ROOT / "art" / "source" / "textures"
+IMAGES = ROOT / "art" / "source" / "images"
 GAME_TEXTURES = ROOT / "public" / "textures"
 UA = {"User-Agent": "EscapeTheCastle-asset-fetch"}
 RES = "1k"
@@ -79,6 +82,16 @@ def main():
         print("texture ok", asset)
     TEXTURES.mkdir(parents=True, exist_ok=True)
     (TEXTURES / "CREDITS.txt").write_text("\n".join(tex_credits) + "\n", encoding="utf-8")
+
+    for sky in config.get("skyPhotos", []):
+        url = get_json(f"https://api.polyhaven.com/files/{sky}")["tonemapped"]["url"]
+        download(url, IMAGES / f"{sky}.jpg")
+        tex_credits.append(credit(sky))
+        print("sky ok", sky)
+    (TEXTURES / "CREDITS.txt").write_text("\n".join(tex_credits) + "\n", encoding="utf-8")
+    for img in config.get("images", []):
+        download(img["url"], IMAGES / f"{img['name']}.jpg")
+        print("image ok", img["name"])
 
     for asset in game_textures:
         src = TEXTURES / asset / "diffuse.jpg"

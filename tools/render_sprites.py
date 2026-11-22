@@ -100,7 +100,113 @@ def render_still(path: pathlib.Path, grade=None):
         grade_image(path, **grade)
 
 
+def alpha_mask(path: pathlib.Path):
+    """Alpha channel of a PNG as a (rows, cols) array, top row first."""
+    img = bpy.data.images.load(str(path))
+    w, h = img.size
+    a = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)[::-1, :, 3]
+    bpy.data.images.remove(img)
+    return a
+
+
+def collision_shape(path: pathlib.Path, ppu: float, cell: float = 4.0, fill: float = 0.35):
+    """Hitbox data from the sprite's visible pixels, in game units relative to its top-left corner.
+
+    bbox: tight box around opaque pixels. rects: the opaque area as a few merged rectangles
+    (a grid of `cell`-unit squares, solid where >= `fill` of the pixels are opaque).
+    """
+    a = alpha_mask(path) > 0.5
+    rows, cols = a.shape
+    ys, xs = np.nonzero(a)
+    if len(xs) == 0:
+        return {"bbox": [0, 0, 0, 0], "rects": []}
+    bbox = [xs.min() / ppu, ys.min() / ppu, (xs.max() + 1 - xs.min()) / ppu, (ys.max() + 1 - ys.min()) / ppu]
+    cp = max(1, int(round(cell * ppu)))
+    gr, gc = -(-rows // cp), -(-cols // cp)
+    padded = np.zeros((gr * cp, gc * cp), dtype=bool)
+    padded[:rows, :cols] = a
+    grid = padded.reshape(gr, cp, gc, cp).mean(axis=(1, 3)) >= fill
+    # Merge: horizontal runs per row, then stack identical runs down the rows.
+    open_rects = {}
+    rects = []
+    for r in range(gr + 1):
+        runs = set()
+        if r < gr:
+            c = 0
+            while c < gc:
+                if grid[r, c]:
+                    c0 = c
+                    while c < gc and grid[r, c]:
+                        c += 1
+                    runs.add((c0, c))
+                else:
+                    c += 1
+        for key in list(open_rects):
+            if key not in runs:
+                r0 = open_rects.pop(key)
+                rects.append((key[0], r0, key[1] - key[0], r - r0))
+        for key in runs:
+            open_rects.setdefault(key, r)
+    unit = cp / ppu
+    def clip(x, y, w, h):
+        w = min(w, cols / ppu - x); h = min(h, rows / ppu - y)
+        return [round(x, 1), round(y, 1), round(w, 1), round(h, 1)]
+    return {
+        "bbox": [round(float(v), 1) for v in bbox],
+        "rects": [clip(c * unit, r * unit, w * unit, h * unit) for (c, r, w, h) in rects],
+    }
+
+
+def render_background(cfg, defaults, out_dir: pathlib.Path):
+    """A room shell rendered with an exact world<->pixel mapping (1 Blender unit = 100 game units,
+    Blender Z = (760 - world y) / 100), so the image lines up with the level's geometry."""
+    scene = reset_scene()
+    WORK.mkdir(parents=True, exist_ok=True)
+    _root, _meshes, parts = procedural.BUILDERS[cfg["build"]]({**cfg, "_work_dir": WORK}, import_model=import_model, render_still=render_still)
+    bg = cfg["background"]
+    x0, y0, w, h, ppu = bg["x0"], bg["y0"], bg["w"], bg["h"], bg["ppu"]
+    cam_data = bpy.data.cameras.new("Cam")
+    cam_data.type = "ORTHO"
+    cam_data.ortho_scale = max(w, h) / 100
+    cam_data.clip_end = 200
+    cam = bpy.data.objects.new("Cam", cam_data)
+    scene.collection.objects.link(cam)
+    scene.camera = cam
+    cam.location = ((x0 + w / 2) / 100, -50, (760 - (y0 + h / 2)) / 100)
+    cam.rotation_euler = (math.pi / 2, 0, 0)
+    scene.render.resolution_x = round(w * ppu)
+    scene.render.resolution_y = round(h * ppu)
+    scene.cycles.samples = cfg.get("samples", 64)
+    results = {}
+    for name, show in cfg["passes"].items():
+        for part, objs in parts.items():
+            for o in objs:
+                o.hide_render = part not in show
+        out = out_dir / f"{name}.png"
+        render_still(out, grade=cfg.get("grade", {}))
+        top, height = y0, h
+        crop = cfg.get("crop", {}).get(name)
+        if crop:
+            top, height = crop[0], crop[1] - crop[0]
+            img = bpy.data.images.load(str(out))
+            px = np.array(img.pixels[:], dtype=np.float32).reshape(img.size[1], img.size[0], 4)
+            r0 = round((y0 + h - crop[1]) * ppu)  # pixel rows are stored bottom-up
+            r1 = round((y0 + h - crop[0]) * ppu)
+            cut = px[r0:r1].copy()
+            bpy.data.images.remove(img)
+            new = bpy.data.images.new(name, cut.shape[1], cut.shape[0], alpha=True)
+            new.pixels[:] = cut.ravel()
+            new.filepath_raw = str(out)
+            new.file_format = "PNG"
+            new.save()
+            bpy.data.images.remove(new)
+        results[name] = {"w": w, "h": height, "x": x0, "y": top, "source": cfg["build"]}
+    return results
+
+
 def render_sprite(cfg, defaults, out_dir: pathlib.Path):
+    if cfg.get("background"):
+        return render_background(cfg, defaults, out_dir)
     scene = reset_scene()
     if cfg.get("build"):
         WORK.mkdir(parents=True, exist_ok=True)
@@ -156,8 +262,10 @@ def render_sprite(cfg, defaults, out_dir: pathlib.Path):
         for part, objs in parts.items():
             for o in objs:
                 o.hide_render = show is not None and part not in show
-        render_still(out_dir / f"{name}.png", grade={})
-        results[name] = {"w": round(float(game_w), 1), "h": round(float(game_h), 1), "source": cfg.get("model") or cfg["build"]}
+        out = out_dir / f"{name}.png"
+        render_still(out, grade={})
+        results[name] = {"w": round(float(game_w), 1), "h": round(float(game_h), 1), "source": cfg.get("model") or cfg["build"],
+                         **collision_shape(out, ppu, cfg.get("cell", 4.0))}
     return results
 
 
@@ -197,11 +305,19 @@ def main():
     rel = config["outDir"].removeprefix("public/")
     lines = [
         "// Generated by tools/render_sprites.py - do not edit by hand.",
-        "// Size of each rendered sprite in game units; the pivot is the bottom centre.",
+        "// Size of each rendered sprite in game units. bbox/rects describe its visible (opaque) pixels,",
+        "// in game units from the sprite's top-left corner; they are used as hitboxes.",
+        "// Backgrounds (x/y set) are drawn at that world position instead.",
         "export const SPRITES = {",
     ]
     for name, m in sorted(manifest.items()):
-        lines.append(f'\t{name}: {{ file: "{rel}/{name}.png", w: {m["w"]}, h: {m["h"]} }},')
+        extra = ""
+        if "x" in m:
+            extra = f', x: {m["x"]}, y: {m["y"]}'
+        if "bbox" in m:
+            rects = ", ".join("[" + ", ".join(str(v) for v in r) + "]" for r in m["rects"])
+            extra += f', bbox: [{", ".join(str(v) for v in m["bbox"])}], rects: [{rects}]'
+        lines.append(f'\t{name}: {{ file: "{rel}/{name}.png", w: {m["w"]}, h: {m["h"]}{extra} }},')
     lines.append("} as const;")
     lines.append("")
     lines.append("export type SpriteName = keyof typeof SPRITES;")

@@ -438,6 +438,9 @@ def build_painting(cfg, import_model, render_still, **_):
     scene = bpy.context.scene
     # Pass 1: the sitter.
     root, meshes = import_model("marble_bust_01")
+    # Turning the sitter's head lets the portrait "watch" the player (one render per angle).
+    root.rotation_euler = (0, 0, math.radians(cfg.get("bustYaw", 0)))
+    bpy.context.view_layer.update()
     pts = [o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
     lo = Vector((min(p.x for p in pts), min(p.y for p in pts), min(p.z for p in pts)))
     hi = Vector((max(p.x for p in pts), max(p.y for p in pts), max(p.z for p in pts)))
@@ -464,7 +467,7 @@ def build_painting(cfg, import_model, render_still, **_):
     bg = scene.world.node_tree.nodes["Background"].inputs[0]
     old_bg = tuple(bg.default_value)
     bg.default_value = (0.035, 0.026, 0.018, 1)
-    sitter_path = cfg["_work_dir"] / "painting_sitter.png"
+    sitter_path = cfg["_work_dir"] / f"{cfg['name']}_sitter.png"
     render_still(sitter_path, grade={"saturation": 0.5, "value": 0.6, "warmth": 0.12})
     bg.default_value = old_bg
     scene.render.film_transparent = True
@@ -495,7 +498,186 @@ def build_shelf(cfg, **_):
     return _finish({"shelf": objs})
 
 
+# ---------------------------------------------------------------- dollhouse room shell
+
+IMAGES = pathlib.Path(__file__).resolve().parent.parent / "art" / "source" / "images"
+
+
+def _wallpaper(name, image, tile=(2.0, 2.7), axes="xz", dim=(0.42, 0.44, 0.38), crop=((0.04, 0.94), (0.04, 0.94))):
+    """A real wallpaper scan laid in repeating roll-sized tiles (cropping the scan's printed edges)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 0.75
+    coord = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(coord.outputs["Object"], sep.inputs["Vector"])
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    for i, (axis, size) in enumerate(zip(axes, tile)):
+        div = nt.nodes.new("ShaderNodeMath")
+        div.operation = "DIVIDE"
+        nt.links.new(sep.outputs[axis.upper()], div.inputs[0])
+        div.inputs[1].default_value = size
+        fr = nt.nodes.new("ShaderNodeMath")
+        fr.operation = "FRACT"
+        nt.links.new(div.outputs[0], fr.inputs[0])
+        cut = nt.nodes.new("ShaderNodeMath")
+        cut.operation = "MULTIPLY_ADD"
+        nt.links.new(fr.outputs[0], cut.inputs[0])
+        cut.inputs[1].default_value = crop[i][1] - crop[i][0]
+        cut.inputs[2].default_value = crop[i][0]
+        nt.links.new(cut.outputs[0], comb.inputs[i])
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(str(IMAGES / f"{image}.jpg"), check_existing=True)
+    tex.extension = "EXTEND"
+    nt.links.new(comb.outputs["Vector"], tex.inputs["Vector"])
+    mul = nt.nodes.new("ShaderNodeMix")
+    mul.data_type = "RGBA"
+    mul.blend_type = "MULTIPLY"
+    mul.inputs["Factor"].default_value = 1.0
+    nt.links.new(tex.outputs["Color"], mul.inputs[6])
+    mul.inputs[7].default_value = (*dim, 1)
+    nt.links.new(mul.outputs[2], bsdf.inputs["Base Color"])
+    return m
+
+
+def _sky(name, image, crop):
+    """Emissive night-sky photo for a window, cropped to (u0, v0, u1, v1) of the panorama (v from the top)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        if n.type != "OUTPUT_MATERIAL":
+            nt.nodes.remove(n)
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = 0.55
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(str(IMAGES / f"{image}.jpg"), check_existing=True)
+    nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+    nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
+    return m
+
+
+def _mesh(name, verts, faces, mat, uvs=None):
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    if uvs is not None:
+        layer = me.uv_layers.new(name="UVMap")
+        for loop in me.loops:
+            layer.data[loop.index].uv = uvs[loop.vertex_index]
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    return _assign(o, mat)
+
+
+def _box(x0, x1, y0, y1, z0, z1, mat, bevel=0.0):
+    return box(((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (abs(x1 - x0), abs(y1 - y0), abs(z1 - z0)), mat, bevel=bevel)
+
+
+def build_room(cfg, **_):
+    """The nursery as a cut-away dollhouse room, at exact game scale: Blender X = x / 100,
+    Z = (760 - y) / 100 (y = game units). The back wall is 3 m deep; floor and ceiling are
+    tilted like a stage set so an orthographic front camera sees them, as in a dollhouse photo."""
+    L = cfg["layout"]
+    X = lambda x: x / 100
+    Z = lambda y: (760 - y) / 100
+    W, wl, wr = X(L["w"]), X(L["wallL"]), X(L["wallR"])
+    D = 3.0
+    crop = tuple(tuple(c) for c in L.get("wallpaperCrop", [[0.04, 0.94], [0.04, 0.94]]))
+    paper = _wallpaper("Wallpaper", L["wallpaper"], crop=crop, dim=(0.25, 0.26, 0.22))
+    paper_side = _wallpaper("WallpaperSide", L["wallpaper"], axes="yz", dim=(0.13, 0.135, 0.12), crop=crop)
+    plaster = photo("Plaster", "painted_plaster_wall", tint=(0.82, 0.77, 0.66), scale=1.2, rough=0.6)
+    ceiling = photo("Ceiling", "ceiling_interior", tint=(0.55, 0.52, 0.46), scale=0.6)
+    wood = photo("RoomWood", "dark_wood", tint=(0.55, 0.4, 0.32), scale=1.2, rough=0.6)
+    paint = photo("WindowPaint", "white_planks_clean", tint=(0.72, 0.69, 0.62), scale=2.5, rough=0.45)
+    gilt = photo("Gilt", "metal_plate", mix_color=BRASS, scale=3, metal=0.6, rough=0.3)
+    parquet = photo("Parquet", "herringbone_parquet", tint=(0.7, 0.6, 0.52), scale=0.28, rough=0.55)
+    shell, floor = [], []
+
+    # Walls and ceiling
+    shell.append(_mesh("BackWall", [(wl, D, Z(670)), (wr, D, Z(670)), (wr, D, Z(22)), (wl, D, Z(22))], [(0, 1, 2, 3)], paper))
+    shell.append(_mesh("LeftWall", [(0, 0, Z(780)), (wl, D, Z(670)), (wl, D, Z(22)), (0, 0, Z(-30))], [(0, 1, 2, 3)], paper_side))
+    shell.append(_mesh("RightWall", [(W, 0, Z(780)), (wr, D, Z(670)), (wr, D, Z(22)), (W, 0, Z(-30))], [(0, 3, 2, 1)], paper_side))
+    shell.append(_mesh("Ceiling", [(0, 0, Z(-30)), (W, 0, Z(-30)), (wr, D, Z(22)), (wl, D, Z(22))], [(0, 1, 2, 3)], ceiling))
+
+    # Cornice: cove, dentils, egg-and-dart, fillet (painted plaster)
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.26, depth=wr - wl, location=((wl + wr) / 2, D, Z(22)), rotation=(0, math.pi / 2, 0), vertices=48)
+    cove = _assign(_smooth(_active()), plaster)
+    shell.append(cove)
+    shell.append(_box(wl, wr, D - 0.1, D, Z(62), Z(54), plaster, bevel=0.01))
+    dent = _box(wl + 0.02, wl + 0.07, D - 0.12, D - 0.06, Z(70), Z(62), plaster, bevel=0.004)
+    arr = dent.modifiers.new("Array", "ARRAY")
+    arr.use_relative_offset = False
+    arr.use_constant_offset = True
+    arr.constant_offset_displace = (0.1, 0, 0)
+    arr.count = int((wr - wl) / 0.1)
+    shell.append(dent)
+    egg = sphere((wl + 0.06, D - 0.08, Z(77)), (1, 0.6, 1.3), 0.035, plaster)
+    arr = egg.modifiers.new("Array", "ARRAY")
+    arr.use_relative_offset = False
+    arr.use_constant_offset = True
+    arr.constant_offset_displace = (0.12, 0, 0)
+    arr.count = int((wr - wl) / 0.12)
+    shell.append(egg)
+    shell.append(_box(wl, wr, D - 0.06, D, Z(86), Z(81), plaster, bevel=0.005))
+
+    # Picture rail and skirting board (dark wood)
+    shell.append(_box(wl, wr, D - 0.05, D, Z(125), Z(117), wood, bevel=0.01))
+    shell.append(_box(wl, wr, D - 0.05, D, Z(670), Z(626), wood, bevel=0.008))
+    shell.append(limb((wl, D - 0.05, Z(626)), (wr, D - 0.05, Z(626)), 0.02, wood))
+
+    # Arched sash windows looking out on a real moonlit night
+    for i, win in enumerate(L["windows"]):
+        cx, top, w, h = X(win["x"]), Z(win["y"]), win["w"] / 100, win["h"] / 100
+        r = w / 2
+        bottom = top - h
+        def arch(rad, y, steps=18):
+            pts = [(cx - rad, y, bottom), (cx - rad, y, top - r)]
+            pts += [(cx - rad * math.cos(a), y, top - r + rad * math.sin(a)) for a in [math.pi * k / steps for k in range(1, steps)]]
+            pts += [(cx + rad, y, top - r), (cx + rad, y, bottom)]
+            return pts
+        crop = win["sky"]
+        verts = [(x, D - 0.015, z) for (x, _, z) in arch(r, D - 0.015)]
+        uvs = [(crop[0] + (x - (cx - r)) / w * (crop[2] - crop[0]), 1 - crop[3] + (z - bottom) / h * (crop[3] - crop[1])) for (x, _, z) in verts]
+        shell.append(_mesh(f"Sky{i}", verts, [list(range(len(verts)))], _sky(f"Sky{i}", L["sky"], crop), uvs))
+        shell.append(tube_path(arch(r + 0.07, D - 0.04), 0.07, paint))
+        shell.append(tube_path(arch(r, D - 0.03), 0.035, paint))
+        shell.append(_box(cx - 0.018, cx + 0.018, D - 0.04, D - 0.02, bottom, top - 0.02, paint))
+        for fz in (0.3, 0.62):
+            shell.append(_box(cx - r, cx + r, D - 0.04, D - 0.02, bottom + h * fz - 0.018, bottom + h * fz + 0.018, paint))
+        for a in (math.pi * 0.25, math.pi * 0.75):
+            shell.append(limb((cx, D - 0.03, top - r), (cx + math.cos(a) * r, D - 0.03, top - r + math.sin(a) * r), 0.016, paint))
+        shell.append(_box(cx - r - 0.18, cx + r + 0.18, D - 0.16, D, bottom - 0.1, bottom, paint, bevel=0.015))
+
+    # The dollhouse box: the room above, and gilt trim on the cut edges
+    shell.append(_box(0, W, -0.02, D, Z(-30), Z(-150), wood))
+    shell.append(_box(0, W, -0.06, 0.0, Z(-22), Z(-31), gilt, bevel=0.01))
+    for (x0, x1) in ((0, 0.09), (W - 0.09, W)):
+        shell.append(_box(x0, x1, -0.06, 0.0, Z(800), Z(-150), gilt, bevel=0.01))
+
+    # Floor (its own pass, so the game can ripple it): parquet seen at an angle, slab front, gilt edge
+    floor.append(_mesh("Floor", [(0, 0, Z(706)), (W, 0, Z(706)), (wr, D, Z(652)), (wl, D, Z(652))], [(0, 1, 2, 3)], parquet))
+    floor.append(_mesh("SlabFront", [(0, -0.001, Z(742)), (W, -0.001, Z(742)), (W, -0.001, Z(706)), (0, -0.001, Z(706))], [(0, 1, 2, 3)], wood))
+    floor.append(_box(0, W, -0.06, 0.0, Z(712), Z(705), gilt, bevel=0.008))
+
+    # Candlelight pooling under the chandelier
+    lamp = bpy.data.lights.new("Candles", "POINT")
+    lamp.color = (1.0, 0.68, 0.38)
+    lamp.energy = cfg.get("candleWatts", 380)
+    lamp.shadow_soft_size = 0.6
+    lo = bpy.data.objects.new("Candles", lamp)
+    lo.location = (X(L["chandelierX"]), 1.6, Z(200))
+    bpy.context.scene.collection.objects.link(lo)
+
+    root = bpy.data.objects.new("Root", None)
+    bpy.context.scene.collection.objects.link(root)
+    return root, shell + floor, {"shell": shell, "floor": floor}
+
+
 BUILDERS = {
+    "room": build_room,
     "shelf": build_shelf,
     "key": build_key,
     "rocking_horse": build_rocking_horse,

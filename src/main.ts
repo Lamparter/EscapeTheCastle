@@ -1,10 +1,9 @@
 import kaplay from "kaplay";
 import { FONT, VIEW_HEIGHT, makePalette } from "./config";
-import { THEMES, buildFloorCanvas, buildRoomCanvas } from "./dollhouseArt";
-import { spriteKey } from "./draw";
 import { registerGameScene } from "./game";
+import { spriteKey } from "./sprites";
 import { SPRITES, type SpriteName } from "./sprites.generated";
-import { CEIL_Y, FLOOR_Y, ROOM, ROOM_ART_TOP, ROOM_THEME, ROOM_WINDOWS, WALL_L, WALL_R } from "./level1";
+import { makeUi } from "./ui";
 
 const k = kaplay({
 	background: [6, 5, 9],
@@ -16,13 +15,21 @@ const k = kaplay({
 
 k.loadRoot("./"); // relative paths, needed for itch.io
 
-/** Radial-gradient vignette, generated at runtime (no image asset needed). */
-function makeVignette(): string {
-	const size = 512;
+// ---------------------------------------------------------------- images
+// Everything visible is a photoreal image: renders made with real photo textures (tools/render_sprites.py),
+// photo textures, and museum scans. The few generated images below are pure light/darkness *effects*
+// (no drawn shapes): a vignette, a soft glow, a black shade, and blurred copies of real images.
+
+function effectCanvas(size: number, paint: (ctx: CanvasRenderingContext2D) => void) {
 	const c = document.createElement("canvas");
 	c.width = c.height = size;
-	const ctx = c.getContext("2d")!;
-	const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+	paint(c.getContext("2d")!);
+	return c;
+}
+
+/** Darkness around the player (radial falloff). */
+k.loadSprite("vignette", effectCanvas(512, (ctx) => {
+	const g = ctx.createRadialGradient(256, 256, 0, 256, 256, 256);
 	// The sprite is drawn 5x screen height, so radius 1.0 = 2.5 screen heights.
 	g.addColorStop(0, "rgba(0,0,0,0)");
 	g.addColorStop(0.08, "rgba(0,0,0,0.05)");
@@ -30,16 +37,21 @@ function makeVignette(): string {
 	g.addColorStop(0.26, "rgba(0,0,0,0.93)");
 	g.addColorStop(1, "rgba(0,0,0,0.97)");
 	ctx.fillStyle = g;
-	ctx.fillRect(0, 0, size, size);
-	return c.toDataURL();
-}
-k.loadSprite("vignette", makeVignette());
-
-// Furniture rendered from CC0 Poly Haven models (tools/render_sprites.py).
-for (const name of Object.keys(SPRITES) as SpriteName[]) k.loadSprite(spriteKey(name), SPRITES[name].file);
-
-/** Vertical fade that sinks the floor into darkness, where the monster lurks. */
-function makeFloorShade(): HTMLCanvasElement {
+	ctx.fillRect(0, 0, 512, 512);
+}));
+/** Soft light falloff, tinted per use (candles, moonlight, glints, eyes). */
+k.loadSprite("glow", effectCanvas(128, (ctx) => {
+	const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+	g.addColorStop(0, "rgba(255,255,255,1)");
+	g.addColorStop(0.25, "rgba(255,255,255,0.45)");
+	g.addColorStop(1, "rgba(255,255,255,0)");
+	ctx.fillStyle = g;
+	ctx.fillRect(0, 0, 128, 128);
+}));
+/** Plain darkness for fades and blackouts. */
+k.loadSprite("shade", effectCanvas(4, (ctx) => { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, 4, 4); }));
+/** Vertical fade that sinks the space beneath the floor into darkness, where the monster lurks. */
+k.loadSprite("floorShade", (() => {
 	const c = document.createElement("canvas");
 	c.width = 4;
 	c.height = 256;
@@ -52,32 +64,39 @@ function makeFloorShade(): HTMLCanvasElement {
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, 4, 256);
 	return c;
-}
-k.loadSprite("floorShade", makeFloorShade());
+})());
 
-// The dollhouse room: vector walls rendered once to a canvas, plus a floor made from a real
-// CC0 parquet photo (loaded first, so KAPLAY waits for it before the game can start).
-const roomLayout = {
-	w: ROOM.w, h: ROOM.h, floorY: FLOOR_Y, ceilY: CEIL_Y, wallL: WALL_L, wallR: WALL_R,
-	top: ROOM_ART_TOP, windows: ROOM_WINDOWS, theme: THEMES[ROOM_THEME], seed: 7,
-};
-k.loadSprite("roomArt", buildRoomCanvas(roomLayout));
+// Rendered sprites (furniture, room, floor, player, ...) and photo textures for the UI.
+for (const name of Object.keys(SPRITES) as SpriteName[]) k.loadSprite(spriteKey(name), SPRITES[name].file);
+k.loadSprite("ui_wood", "textures/dark_wood_diff.jpg");
+k.loadSprite("ui_brass", "textures/metal_plate_diff.jpg");
+
+/** A heavily blurred copy of the monster render: its ghostly glow through the floorboards. */
 k.load((async () => {
 	const img = new Image();
-	img.src = "textures/herringbone_parquet_diff.jpg";
+	img.src = SPRITES.monster.file;
 	await img.decode();
-	await k.loadSprite("floorArt", buildFloorCanvas(roomLayout, img));
+	const pad = 60;
+	const c = document.createElement("canvas");
+	c.width = img.width + pad * 2;
+	c.height = img.height + pad * 2;
+	const ctx = c.getContext("2d")!;
+	ctx.filter = "blur(18px) brightness(1.6)";
+	ctx.drawImage(img, pad, pad);
+	await k.loadSprite("monster_glow", c);
 })());
 
 const pal = makePalette(k);
 registerGameScene(k, pal);
 
-/** Title backdrop: a slice of the nursery wall, under the vignette. */
-function backdrop() {
+/** Title / end backdrop: a slice of the nursery wall, under the vignette. */
+function backdrop(darken = 0) {
 	const W = k.width(), H = k.height();
+	const room = SPRITES.room;
 	const s = H / 420;
-	k.drawSprite({ sprite: "roomArt", pos: k.vec2(W / 2 - 610 * s, -ROOM_ART_TOP * s), width: ROOM.w * s, height: (ROOM.h + ROOM_ART_TOP) * s });
+	k.drawSprite({ sprite: spriteKey("room"), pos: k.vec2(W / 2 - 610 * s, room.y * s), width: room.w * s, height: room.h * s });
 	k.drawSprite({ sprite: "vignette", pos: k.vec2(W / 2, H / 2), width: H * 5, height: H * 5, anchor: "center" });
+	if (darken) k.drawSprite({ sprite: "shade", pos: k.vec2(0, 0), width: W, height: H, opacity: darken });
 }
 
 k.scene("title", () => {
@@ -101,16 +120,18 @@ k.scene("title", () => {
 
 k.scene("escaped", ({ time }: { time: number }) => {
 	k.setCursor("default");
+	const ui = makeUi(k, pal);
 	const secs = Math.floor(time);
 	const timeStr = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 	k.add([k.fixed(), {
 		id: "escaped",
 		draw() {
 			const W = k.width(), H = k.height(), u = H / VIEW_HEIGHT;
-			k.drawRect({ pos: k.vec2(0, 0), width: W, height: H, color: pal.void });
+			backdrop(0.75);
+			ui.panel(W / 2 - 330 * u, H * 0.24, 660 * u, 150 * u, 0.92);
 			k.drawText({ text: "You slip down the slide into the dark...", pos: k.vec2(W / 2, H * 0.34), size: 30 * u, color: pal.text, anchor: "center", font: FONT });
 			k.drawText({ text: `The Nursery escaped in ${timeStr}`, pos: k.vec2(W / 2, H * 0.34 + 46 * u), size: 20 * u, color: time <= 60 ? pal.monster : pal.yellow, anchor: "center", font: FONT });
-			k.drawText({ text: "The next rooms are still being built.", pos: k.vec2(W / 2, H * 0.55), size: 16 * u, color: pal.textDim, anchor: "center", font: FONT });
+			k.drawText({ text: "The next rooms are still being built.", pos: k.vec2(W / 2, H * 0.6), size: 16 * u, color: pal.textDim, anchor: "center", font: FONT });
 			k.drawText({ text: "Click or press Space to play the Nursery again", pos: k.vec2(W / 2, H * 0.7), size: 18 * u, color: pal.text, anchor: "center", font: FONT });
 		},
 	}]);

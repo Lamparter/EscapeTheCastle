@@ -1,12 +1,14 @@
 import type { KAPLAYCtx, Vec2 } from "kaplay";
-import { FLOOR_ART_HEIGHT, FLOOR_ART_OFFSET } from "./dollhouseArt";
 import { FONT, PHYS, VIEW_HEIGHT, type Palette } from "./config";
-import { drawItem, drawPlayer, makeRoomArt } from "./draw";
+import { drawItem, drawPlayer, glow, makeRoomArt } from "./draw";
 import {
-	CHANDELIER_HIT, FIXED, FLOOR_Y, HATCH, ITEMS, KEY_HANG, PLAYER_SIZE, PLAYER_START, ROOM, ROOM_ART_TOP, ROOM_NUMBER, ROOM_TITLE,
+	CHANDELIER, FIXED, FLOOR_Y, FURNITURE, HATCH, ITEMS, PLAYER_SIZE, PLAYER_START, ROOM, ROOM_NUMBER, ROOM_TITLE,
 	type ItemDef,
 } from "./level1";
 import { type Body, type Rect, type Solid, bodyRect, findSupport, overlaps, stepBody } from "./physics";
+import { spriteKey, spriteOrigin, spriteSolids } from "./sprites";
+import { SPRITES } from "./sprites.generated";
+import { makeUi } from "./ui";
 
 interface Item {
 	def: ItemDef;
@@ -18,15 +20,6 @@ interface Item {
 }
 
 type Phase = "play" | "sliding";
-
-interface MenuButton {
-	label: string;
-	action: () => void;
-	x: number;
-	y: number;
-	w: number;
-	h: number;
-}
 
 /** A ripple simulation for the floor's vinyl: strips on springs, coupled to their neighbours. */
 function makeFloorWave(width: number, strip: number) {
@@ -75,7 +68,8 @@ function makeFloorWave(width: number, strip: number) {
 export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 	k.scene("game", () => {
 		const v = k.vec2;
-		const art = makeRoomArt(k, pal);
+		const art = makeRoomArt(k);
+		const ui = makeUi(k, pal);
 		k.setCursor("default");
 
 		// ---------- State ----------
@@ -117,6 +111,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		let blackout = 0;
 		let dim = 0;
 		let fxOn = true; // dev toggle: hide vignette/darkness to inspect the art
+		let showHitboxes = false; // dev toggle: outline every solid (debug only)
 
 		const floorWave = makeFloorWave(ROOM.w, 12);
 
@@ -128,14 +123,17 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		}));
 		const keyItem = items.find((i) => i.def.id === "key")!;
 
-		function itemSolid(it: Item): Solid {
-			return { id: it.def.id, x: it.b.x - it.b.hw, y: it.b.y - it.b.hh, w: it.def.w, h: it.def.h, bounce: it.def.bounce };
+		/** An item's body: the tight box around its sprite's visible pixels. */
+		const itemRect = (it: Item): Rect => ({ x: it.b.x - it.b.hw, y: it.b.y - it.b.hh, w: it.def.w, h: it.def.h });
+		/** A resting item as solids: the rectangles covering its sprite's visible pixels. */
+		function itemSolids(it: Item): Solid[] {
+			const o = spriteOrigin(it.def.sprite, itemRect(it));
+			return spriteSolids(it.def.sprite, it.def.id, o.x, o.y, it.def.bounce);
 		}
-		const itemRect = (it: Item): Rect => itemSolid(it);
 		/** Things you can stand on / bounce off: fixed furniture plus light items at rest (not the key). */
 		const solidsNow = (except?: Item): Solid[] => [
 			...FIXED,
-			...items.filter((i) => i !== except && i.active && !i.carried && i.b.grounded && i.def.kind !== "key").map(itemSolid),
+			...items.filter((i) => i !== except && i.active && !i.carried && i.b.grounded && i.def.kind !== "key").flatMap(itemSolids),
 		];
 
 		const say = (msg: string, secs = 2.4) => { toast = msg; toastT = secs; };
@@ -194,12 +192,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 		// ---------- Furniture ----------
 		function supportsSomething(item: Item) {
-			const r = itemRect(item);
-			return items.some((o) => {
-				if (o === item || !o.active || o.carried || !o.b.grounded) return false;
-				const or = itemRect(o);
-				return Math.abs(or.y + or.h - r.y) < 1.5 && or.x < r.x + r.w && or.x + or.w > r.x;
-			});
+			return items.some((o) => o !== item && o.active && !o.carried && o.b.grounded && o.b.ground?.id === item.def.id);
 		}
 
 		function nearestGrabbable(): Item | null {
@@ -278,7 +271,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					if (it.def.kind !== "key" && wasMoving && it.b.grounded && overlaps(itemRect(it), bodyRect(player))) {
 						player.y = it.b.y - it.b.hh - player.hh;
 						player.grounded = true;
-						player.ground = itemSolid(it);
+						player.ground = { ...itemRect(it), id: it.def.id, bounce: it.def.bounce };
 					}
 				}
 			}
@@ -301,10 +294,11 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 		function knockKeyLoose(fromX: number) {
 			const p = art.chandelierPos(t, swing);
+			const kb = art.hangingKeyBox(t, swing);
 			keyOnChandelier = false;
 			keyItem.active = true;
-			keyItem.b.x = p.x + KEY_HANG.dx;
-			keyItem.b.y = p.y + KEY_HANG.dy;
+			keyItem.b.x = kb.x + kb.w / 2;
+			keyItem.b.y = kb.y + kb.h / 2;
 			keyItem.b.vx = (Math.sign(p.x - fromX) || 1) * (120 + Math.random() * 120);
 			keyItem.b.vy = -150;
 			keyItem.b.grounded = false;
@@ -318,6 +312,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 			(window as any).__etc = {
 				player, items, toggleCarry, floorWave,
 				fx(on: boolean) { fxOn = on; },
+				hitboxes(on: boolean) { showHitboxes = on; },
 				teleport(x: number, y: number) { player.x = x; player.y = y; player.vx = player.vy = 0; player.grounded = false; player.ground = null; },
 				jump: jumpPressed,
 				state: () => ({ x: player.x, y: player.y, vx: player.vx, vy: player.vy, grounded: player.grounded, ground: player.ground?.id, airJumpsLeft, sink, carrying: carrying?.def.id, keyOnChandelier, phase, elapsed }),
@@ -358,7 +353,7 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 			if (phase === "sliding") {
 				slideT += dt;
-				const target = v(HATCH.x + HATCH.w / 2, HATCH.y + HATCH.h - 30);
+				const target = v(HATCH.cx, HATCH.bottom - 40);
 				player.x = k.lerp(player.x, target.x, Math.min(1, dt * 6));
 				player.y = k.lerp(player.y, target.y, Math.min(1, dt * 6));
 				if (slideT > 1.6) k.go("escaped", { time: elapsed });
@@ -383,9 +378,15 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 				if (dir !== 0 && sink === 0) {
 					const step = dir * PHYS.walkSpeed * carryFactor() * dt;
 					const moved = { ...bodyRect(player), x: player.x - player.hw + step };
-					// Walls and furniture sides block walking (the surface you stand on doesn't).
-					const blocked = solidsNow().some((s) => s.id !== player.ground?.id && overlaps(moved, s, 0.5));
-					if (!blocked) player.x += step;
+					// Surfaces follow the sprites' pixels, so they can be uneven: step up small ledges,
+					// but anything taller than STEP blocks you.
+					const STEP = 9, feet = player.y + player.hh;
+					const hits = solidsNow().filter((s) => overlaps(moved, s, 0.01));
+					if (hits.every((s) => s.y >= feet - STEP)) {
+						player.x += step;
+						const top = Math.min(feet, ...hits.map((s) => s.y));
+						player.y = top - player.hh;
+					}
 					player.vx = dir * PHYS.walkSpeed * carryFactor(); // kept if you walk off an edge
 				}
 			} else if (dir !== 0) {
@@ -424,14 +425,15 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 			if (player.ground?.id === "wardrobe" || player.ground?.id === "shelf") reachedWardrobe = true;
 
-			// Bumping the chandelier swings it, and the first hit knocks the key loose.
-			if (overlaps(bodyRect(player), CHANDELIER_HIT)) {
-				const push = player.vx * 0.004 + (player.x < CHANDELIER_HIT.x + CHANDELIER_HIT.w / 2 ? 0.25 : -0.25);
+			// Bumping the chandelier (its visible pixels, or the key) swings it; the first hit knocks the key loose.
+			const pr = bodyRect(player);
+			if (art.chandelierRects(t, swing, keyOnChandelier).some((r) => overlaps(pr, r))) {
+				const push = player.vx * 0.004 + (player.x < CHANDELIER.x ? 0.25 : -0.25);
 				if (Math.abs(swingVel) < 0.6) swingVel += push;
 				if (keyOnChandelier) knockKeyLoose(player.x);
 			}
 
-			if (overlaps(bodyRect(player), HATCH)) {
+			if (art.hatchRects().some((r) => overlaps(pr, r))) {
 				if (carrying?.def.kind === "key") {
 					phase = "sliding";
 					carrying.carried = false;
@@ -487,68 +489,64 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		k.add([k.z(0), {
 			id: "worldArt",
 			draw() {
-				k.drawSprite({ sprite: "roomArt", pos: v(0, -ROOM_ART_TOP), width: ROOM.w, height: ROOM.h + ROOM_ART_TOP });
-				art.portrait(player.x, player.y);
-				art.hatch(t, phase === "sliding", phase !== "sliding");
-				art.chandelier(t, swing, keyOnChandelier);
-				for (const f of FIXED) {
-					if (f.art) art.placed(f.art);
-				}
-
-				// Rippling floor: the floor art sliced into strips, each offset by the wave.
+				// The room shell, then the rippling floor, then every object in front of the floor.
+				const room = SPRITES.room;
+				k.drawSprite({ sprite: spriteKey("room"), pos: v(room.x, room.y), width: room.w, height: room.h });
+				const fl = SPRITES.floor;
 				const w = floorWave.strip;
 				for (let i = 0; i < floorWave.n - 1; i++) {
 					const x = i * w;
-					if (x >= ROOM.w) break;
-					const sw = Math.min(w, ROOM.w - x);
+					if (x >= fl.w) break;
+					const sw = Math.min(w, fl.w - x);
 					k.drawSprite({
-						sprite: "floorArt",
-						pos: v(x, FLOOR_Y - FLOOR_ART_OFFSET + floorWave.d[i]),
+						sprite: spriteKey("floor"),
+						pos: v(fl.x + x, fl.y + floorWave.d[i]),
 						width: sw + 0.6,
-						height: FLOOR_ART_HEIGHT,
-						quad: k.quad(x / ROOM.w, 0, sw / ROOM.w, 1),
+						height: fl.h,
+						quad: k.quad(x / fl.w, 0, sw / fl.w, 1),
 					});
 				}
+				art.portrait(player.x);
+				art.hatch(t, phase === "sliding", phase !== "sliding");
+				art.chandelier(t, swing, keyOnChandelier);
+				for (const f of FURNITURE) art.furniture(f);
 				art.rockingHorse(t, floorWave.at(760));
 
 				for (const it of items) {
 					if (!it.active || it.carried) continue;
 					const r = itemRect(it);
-					drawItem(k, pal, it.def.kind, r.x, r.y + sinkAt(it.b), r.w, r.h);
+					drawItem(k, it.def.sprite, { ...r, y: r.y + sinkAt(it.b) });
 				}
 
-				// Drop preview
+				if (import.meta.env.DEV && showHitboxes) {
+					for (const r of [...solidsNow(), ...art.chandelierRects(t, swing, keyOnChandelier), ...art.hatchRects(), bodyRect(player)]) {
+						k.drawRect({ pos: v(r.x, r.y), width: r.w, height: r.h, fill: false, outline: { width: 1, color: k.rgb(0, 255, 120) } });
+					}
+				}
+
+				// Drop preview: a ghost of the item where it would land (tinted red if it can't go there)
 				if (carrying && phase === "play") {
 					const plan = dropPlan(carrying);
-					const col = plan.blocked ? pal.danger : pal.text;
-					k.drawRect({ pos: v(plan.rest.x, plan.rest.y), width: plan.rest.w, height: plan.rest.h, fill: false, outline: { width: 2, color: col }, opacity: 0.6, radius: 4 });
-					drawItem(k, pal, carrying.def.kind, plan.rest.x, plan.rest.y, plan.rest.w, plan.rest.h, 0.25);
+					drawItem(k, carrying.def.sprite, plan.rest, 0.35 + 0.1 * Math.sin(t * 6), plan.blocked ? k.rgb(255, 90, 80) : k.rgb(200, 220, 255));
 				}
 
 				// Player (squashes as it sinks into the vinyl)
 				const py = player.y + sinkAt(player);
 				const slideFade = phase === "sliding" ? Math.max(0, 1 - slideT * 1.2) : 1;
-				if (slideFade > 0) drawPlayer(k, player.x, py, player.hh, player.vy + sink * 700, facing, t);
+				if (slideFade > 0) drawPlayer(k, player.x, py + player.hh, player.hw, player.vy + sink * 700, facing, t);
 				if (carrying) {
 					const s = carrying.def.kind === "key" ? 1 : 0.7;
 					const cw = carrying.def.w * s, ch = carrying.def.h * s;
-					drawItem(k, pal, carrying.def.kind, player.x - cw / 2, py - player.hh - ch - 4, cw, ch);
+					drawItem(k, carrying.def.sprite, { x: player.x - cw / 2, y: py - player.hh - ch - 4, w: cw, h: ch });
 				}
-				// Double jump ready: a faint wisp above the head while airborne
+				// Double jump ready: a faint glimmer above the head while airborne
 				if (!player.grounded && airJumpsLeft > 0 && phase === "play") {
-					k.drawCircle({ pos: v(player.x, py - player.hh - (carrying ? 40 : 10)), radius: 3, color: pal.moon, opacity: 0.5 + 0.3 * Math.sin(t * 10) });
+					glow(k, v(player.x, py - player.hh - (carrying ? 40 : 10)), 9, k.rgb(160, 185, 230), 0.55 + 0.3 * Math.sin(t * 10));
 				}
 			},
 		}]);
 
-		// ---------- Screen-space: vignette, floor darkness, monster, HUD, menu ----------
-		const menuButtons: MenuButton[] = [];
-		function clickMenu(p: Vec2) {
-			for (const b of menuButtons) {
-				if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) { b.action(); return; }
-			}
-		}
-
+		// ---------- Screen-space: vignette, floor darkness, monster, HUD, menu (images + effects only) ----------
 		k.add([k.fixed(), k.z(10), {
 			id: "screenFx",
 			draw() {
@@ -560,34 +558,31 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					const flick = dim > 0 ? 0.75 + 0.2 * Math.sin(t * 60) : 1;
 					const size = H * 5 * flick;
 					k.drawSprite({ sprite: "vignette", pos: ps, width: size, height: size, anchor: "center" });
-					// The floor is part of the darkness too: it fades to black just below the surface.
-					const fy = k.toScreen(v(0, FLOOR_Y - 6)).y;
+					// The floor's underside sinks into the darkness (below the floor's front edge, behind nothing).
+					const fy = k.toScreen(v(0, FLOOR_Y + 8)).y;
 					if (fy < H) k.drawSprite({ sprite: "floorShade", pos: v(0, fy), width: W, height: Math.max(H - fy, 90 * u) });
 				}
 
-				// Monster: a glowing, blurred shape lurking inside the dark floor
-				const ms = k.toScreen(v(monsterX, FLOOR_Y + 48));
-				const glow = 0.16 + anger * 0.35 + monsterPulse * 0.25;
-				for (let i = 6; i >= 1; i--) {
-					k.drawEllipse({ pos: ms, radiusX: (60 + i * 26) * u, radiusY: (22 + i * 9) * u, color: pal.monster, opacity: glow * 0.06 });
-				}
+				// Monster: a pale face (a photo-textured render) glowing up through the dark beneath the floor.
+				const ms = k.toScreen(v(monsterX, FLOOR_Y + 70));
+				const m = SPRITES.monster;
+				const presence = 0.12 + anger * 0.4 + monsterPulse * 0.25;
+				const mw = m.w * u * 1.1, mh = m.h * u * 1.1;
+				const green = k.rgb(150, 235, 180);
+				k.drawSprite({ sprite: "monster_glow", pos: ms, width: mw * 1.6, height: mh * 1.6, anchor: "center", color: green, opacity: presence * 0.9 });
+				k.drawSprite({ sprite: spriteKey("monster"), pos: ms, width: mw, height: mh, anchor: "center", color: green, opacity: presence * 0.35 });
 				const eyeOpen = Math.min(1, anger * 1.6 + monsterPulse * 0.6);
-				if (eyeOpen > 0.15) {
-					for (const ex of [-34, 34]) {
-						k.drawEllipse({ pos: ms.add(v(ex * u, -8 * u)), radiusX: 10 * u, radiusY: 4 * u * eyeOpen, color: pal.monster, opacity: 0.25 + 0.5 * eyeOpen });
-					}
-				}
+				const eyes = [ms.add(v(-0.13 * mw, -0.22 * mh)), ms.add(v(0.1 * mw, -0.22 * mh))];
+				if (eyeOpen > 0.15) for (const e of eyes) glow(k, e, 14 * u * eyeOpen, green, 0.3 + 0.6 * eyeOpen);
 
 				if (blackout > 0) {
-					k.drawRect({ pos: v(0, 0), width: W, height: H, color: k.BLACK, opacity: 0.94 });
+					ui.shade(0, 0, W, H, 0.94);
 					// ...but the eyes still glow.
-					for (const ex of [-34, 34]) k.drawEllipse({ pos: ms.add(v(ex * u, -8 * u)), radiusX: 10 * u, radiusY: 4 * u, color: pal.monster, opacity: 0.8 });
+					for (const e of eyes) glow(k, e, 14 * u, green, 0.9);
 				}
 
 				drawHud(W, H, u);
-				if (phase === "sliding") {
-					k.drawRect({ pos: v(0, 0), width: W, height: H, color: k.BLACK, opacity: Math.min(1, slideT / 1.4) });
-				}
+				if (phase === "sliding") ui.shade(0, 0, W, H, Math.min(1, slideT / 1.4));
 				if (paused) drawMenu(W, H, u);
 			},
 		}]);
@@ -605,29 +600,29 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 
 		function drawHud(W: number, H: number, u: number) {
 			const m = 18 * u;
+			// Title plaque with the air gauge (teaser: steady in Room I)
+			ui.panel(m - 8 * u, m - 8 * u, 250 * u, 82 * u, 0.85);
 			k.drawText({ text: ROOM_NUMBER.toUpperCase(), pos: v(m, m), size: 13 * u, color: pal.textDim, font: FONT });
 			k.drawText({ text: ROOM_TITLE, pos: v(m, m + 16 * u), size: 24 * u, color: pal.text, font: FONT });
-			// Air gauge (teaser: steady in Room I)
-			const gy = m + 50 * u, gw = 150 * u;
+			const gy = m + 50 * u;
 			k.drawText({ text: "AIR", pos: v(m, gy), size: 12 * u, color: pal.textDim, font: FONT });
-			k.drawRect({ pos: v(m + 34 * u, gy + 2 * u), width: gw, height: 9 * u, color: k.BLACK, opacity: 0.7, radius: 4 * u });
-			k.drawRect({ pos: v(m + 34 * u, gy + 2 * u), width: gw, height: 9 * u, color: pal.moon, opacity: 0.8, radius: 4 * u });
-			k.drawText({ text: "steady", pos: v(m + 40 * u + gw, gy), size: 12 * u, color: pal.textDim, font: FONT });
-			// Timer
+			ui.gauge(m + 34 * u, gy + 1 * u, 140 * u, 11 * u, 1);
+			k.drawText({ text: "steady", pos: v(m + 182 * u, gy), size: 12 * u, color: pal.textDim, font: FONT });
+			// Timer and controls reminder
 			const secs = Math.floor(elapsed);
 			const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-			k.drawText({ text: time, pos: v(W - m, m), size: 26 * u, color: pal.text, font: FONT, anchor: "topright" });
+			ui.panel(W - m - 200 * u, m - 8 * u, 208 * u, 58 * u, 0.85);
+			k.drawText({ text: time, pos: v(W - m, m - 2 * u), size: 26 * u, color: pal.text, font: FONT, anchor: "topright" });
+			k.drawText({ text: "E carry   R restart   Esc menu", pos: v(W - m, m + 30 * u), size: 12 * u, color: pal.textDim, font: FONT, anchor: "topright" });
 
 			const hint = hintText();
 			const hw = Math.min(W - 2 * m, 640 * u);
-			k.drawRect({ pos: v(W / 2, H - m), width: hw, height: 44 * u, color: k.BLACK, opacity: 0.55, radius: 8 * u, anchor: "bot" });
+			ui.panel(W / 2 - hw / 2, H - m - 44 * u, hw, 44 * u, 0.9);
 			k.drawText({ text: hint, pos: v(W / 2, H - m - 22 * u), size: 15 * u, width: hw - 24 * u, align: "center", color: pal.text, font: FONT, anchor: "center" });
 
 			if (toastT > 0) {
 				k.drawText({ text: toast, pos: v(W / 2, H - m - 64 * u), size: 15 * u, color: pal.yellow, font: FONT, anchor: "center", opacity: Math.min(1, toastT * 2) });
 			}
-
-			k.drawText({ text: "E carry   R restart   Esc menu", pos: v(W - m, m + 34 * u), size: 12 * u, color: pal.textDim, font: FONT, anchor: "topright" });
 
 			if (anger > 0.6) {
 				k.drawText({ text: "Something beneath the floorboards stirs...", pos: v(W / 2, m + 8 * u), size: 15 * u, color: pal.monster, font: FONT, anchor: "top", opacity: (anger - 0.6) * 3 });
@@ -635,9 +630,11 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 		}
 
 		function drawMenu(W: number, H: number, u: number) {
-			k.drawRect({ pos: v(0, 0), width: W, height: H, color: k.BLACK, opacity: 0.72 });
+			ui.shade(0, 0, W, H, 0.72);
+			const pw = 520 * u, ph = 360 * u;
+			ui.panel(W / 2 - pw / 2, H * 0.12, pw, ph, 0.95);
 			k.drawText({ text: "Paused", pos: v(W / 2, H * 0.22), size: 46 * u, color: pal.text, font: FONT, anchor: "center" });
-			menuButtons.length = 0;
+			ui.clearButtons();
 			if (showControls) {
 				const lines = [
 					"A / D or Left / Right - shuffle along (drift in the air)",
@@ -647,23 +644,17 @@ export function registerGameScene(k: KAPLAYCtx, pal: Palette) {
 					"E - pick up / put down (the pointer picks the spot)",
 					"R - restart room      Esc - menu",
 				];
-				lines.forEach((l, i) => k.drawText({ text: l, pos: v(W / 2, H * 0.34 + i * 26 * u), size: 17 * u, color: pal.text, font: FONT, anchor: "center" }));
-				addButton("Back", W / 2, H * 0.34 + lines.length * 26 * u + 30 * u, u, () => { showControls = false; });
+				lines.forEach((l, i) => k.drawText({ text: l, pos: v(W / 2, H * 0.32 + i * 24 * u), size: 15 * u, color: pal.text, font: FONT, anchor: "center" }));
+				ui.button("Back", W / 2, H * 0.32 + lines.length * 24 * u + 24 * u, u, () => { showControls = false; });
 				return;
 			}
-			addButton("Resume", W / 2, H * 0.40, u, () => { paused = false; });
-			addButton("Restart room", W / 2, H * 0.40 + 56 * u, u, () => k.go("game"));
-			addButton("Controls", W / 2, H * 0.40 + 112 * u, u, () => { showControls = true; });
+			ui.button("Resume", W / 2, H * 0.36, u, () => { paused = false; });
+			ui.button("Restart room", W / 2, H * 0.36 + 56 * u, u, () => k.go("game"));
+			ui.button("Controls", W / 2, H * 0.36 + 112 * u, u, () => { showControls = true; });
 		}
 
-		function addButton(label: string, cx: number, cy: number, u: number, action: () => void) {
-			const w = 240 * u, h = 42 * u;
-			const b = { label, action, x: cx - w / 2, y: cy - h / 2, w, h };
-			menuButtons.push(b);
-			const mp = k.mousePos();
-			const hover = mp.x >= b.x && mp.x <= b.x + w && mp.y >= b.y && mp.y <= b.y + h;
-			k.drawRect({ pos: v(b.x, b.y), width: w, height: h, color: hover ? pal.redDark : k.BLACK, opacity: 0.85, radius: 6 * u, outline: { width: 1, color: pal.gold } });
-			k.drawText({ text: label, pos: v(cx, cy), size: 19 * u, color: pal.text, font: FONT, anchor: "center" });
+		function clickMenu(p: Vec2) {
+			ui.click(p);
 		}
 	});
 }

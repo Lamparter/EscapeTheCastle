@@ -21,10 +21,11 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 - `src/game.ts` - the room scene: input, walking/jumping/springing, carrying, the key puzzle, camera, HUD, pause menu
 - `src/physics.ts` - small AABB physics with restitution (bouncy surfaces)
 - `src/level1.ts` - The Nursery layout and puzzle data
-- `src/dollhouseArt.ts` - the room as a cut-away Victorian dollhouse room: vector wallpaper, mouldings and windows, plus a photo-textured parquet floor (each room has its own theme)
-- `src/draw.ts` - draws the rendered sprites (furniture, painting, hatch, player) and light effects
+- `src/sprites.ts` - hitboxes from each rendered sprite's visible pixels
+- `src/ui.ts` - UI built from photo materials (dark wood, brass)
+- `src/draw.ts` - draws the rendered images (furniture, portrait, hatch, chandelier, player) and image-based light effects
 - `src/config.ts` - tuning values and the colour palette
-- `src/sprites.generated.ts` - sizes of the rendered furniture sprites (generated)
+- `src/sprites.generated.ts` - sizes and visible-pixel hitboxes of every rendered image (generated)
 - `tools/` - model download and Blender sprite-render scripts
 
 ## Development
@@ -33,7 +34,7 @@ This is the first mock-up: Room I (The Nursery, the tutorial).
 pnpm run dev
 ```
 
-starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player; `__etc.fx(false)` hides the vignette to inspect the art.
+starts a dev server at http://localhost:3001. In dev builds, `window.__etc` in the browser console lets you inspect and teleport the player; `__etc.fx(false)` hides the vignette to inspect the art and `__etc.hitboxes(true)` outlines every hitbox.
 
 ```sh
 pnpm run check
@@ -50,7 +51,7 @@ python tools/fetch_polyhaven.py
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b -P tools/render_sprites.py
 ```
 
-Pieces with no suitable free model (player, key, rocking horse, hatch) are built procedurally in `tools/procedural.py`. The first command downloads the models and photo textures listed in `tools/sprites.json` into `art/source/` (git-ignored). The second renders them into `public/sprites/nursery/` with a shared camera, lighting and colour grade, and regenerates `src/sprites.generated.ts` (sprite sizes in game units). Add names after `--` to re-render only some sprites. Credits are in `CREDITS.md`.
+Art rule: no vector graphics. Everything on screen is a photoreal image (renders that use real CC0 photo textures, photo textures, or public-domain scans); animation and lighting are effects applied to those images. The room itself (walls with a real 1883 Morris & Co. wallpaper scan, cornice, windows with a real night-sky photo, parquet floor) is modelled and rendered in Blender too. Pieces with no suitable free model (player, key, rocking horse, hatch, shelf, the room) are built procedurally in `tools/procedural.py`. Hitboxes come from each render's visible pixels. The first command downloads the models and photo textures listed in `tools/sprites.json` into `art/source/` (git-ignored). The second renders them into `public/sprites/nursery/` with a shared camera, lighting and colour grade, and regenerates `src/sprites.generated.ts` (sprite sizes in game units). Add names after `--` to re-render only some sprites. Credits are in `CREDITS.md`.
 
 ## Distribution
 

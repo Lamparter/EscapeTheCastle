@@ -3,9 +3,12 @@
 	"pixelsPerUnit": 3,
 	"tiltDegrees": 6,
 	"outDir": "public/sprites/nursery",
-	"textures": ["dark_wood", "metal_plate", "rusty_metal", "rough_linen", "curly_teddy_natural", "leather_red_02", "brown_leather", "painted_plaster_wall", "leather_white"],
-	"gameTextures": ["herringbone_parquet"],
+	"textures": ["brown_leather", "ceiling_interior", "curly_teddy_natural", "dark_wood", "leather_red_02", "leather_white", "metal_plate", "painted_plaster_wall", "rough_linen", "rusty_metal", "white_planks_clean"],
+	"gameTextures": ["herringbone_parquet", "dark_wood", "metal_plate"],
+	"skyPhotos": ["moonlit_golf"],
+	"images": [{"name": "honeysuckle", "url": "https://ids.si.edu/ids/deliveryService?id=CHSDM-1980-73-1MattFlynn&max=3000", "credit": "May Morris for Morris & Co., Honeysuckle sidewall (1883), Cooper Hewitt, Smithsonian Design Museum, CC0"}],
 	"sprites": [
+		{"name": "room", "build": "room", "background": {"x0": 0, "y0": -140, "w": 1920, "h": 900, "ppu": 1.5}, "passes": {"room": ["shell"], "floor": ["floor"]}, "crop": {"floor": [640, 760]}, "samples": 48, "layout": {"w": 1920, "wallL": 64, "wallR": 1856, "wallpaper": "honeysuckle", "sky": "moonlit_golf", "chandelierX": 900, "windows": [{"x": 610, "y": 170, "w": 170, "h": 210, "sky": [0.47, 0.14, 0.64, 0.5]}, {"x": 1485, "y": 160, "w": 130, "h": 150, "sky": [0.86, 0.24, 0.96, 0.5]}], "wallpaperCrop": [[0.03, 0.88], [0.03, 0.97]]}},
 		{"name": "bed", "model": "GothicBed_01", "yaw": 82, "tilt": 3, "fit": "width", "size": 350},
 		{"name": "wardrobe", "model": "GothicCabinet_01", "yaw": 18, "fit": "height", "size": 280},
 		{"name": "chandelier", "model": "Chandelier_03", "yaw": 0, "fit": "height", "size": 240, "tilt": 0},
@@ -14,10 +17,15 @@
 		{"name": "pillow", "model": "throw_pillows_01", "yaw": 10, "fit": "width", "size": 80},
 		{"name": "nightstand", "model": "ClassicNightstand_01", "yaw": 18, "fit": "height", "size": 80},
 		{"name": "painting", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting"},
+		{"name": "painting_r2", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting", "bustYaw": 28},
+		{"name": "painting_r1", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting", "bustYaw": 14},
+		{"name": "painting_l1", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting", "bustYaw": -14},
+		{"name": "painting_l2", "model": "fancy_picture_frame_02", "extraModels": ["marble_bust_01"], "yaw": 0, "tilt": 0, "fit": "height", "size": 170, "build": "painting", "bustYaw": -28},
 		{"name": "key", "build": "key", "yaw": 0, "tilt": 0, "fit": "width", "size": 36},
 		{"name": "rocking_horse", "build": "rocking_horse", "yaw": 15, "fit": "width", "size": 150},
 		{"name": "hatch", "build": "hatch", "yaw": 0, "tilt": 0, "fit": "width", "size": 112, "passes": {"hatch": ["frame"], "hatch_lock": ["lock"]}},
 		{"name": "player", "build": "child", "yaw": 25, "tilt": 4, "fit": "height", "size": 76, "passes": {"player": ["body", "eyes"], "player_blink": ["body", "lids"]}},
-		{"name": "shelf", "build": "shelf", "yaw": 0, "tilt": 6, "fit": "width", "size": 190}
+		{"name": "shelf", "build": "shelf", "yaw": 0, "tilt": 6, "fit": "width", "size": 190},
+		{"name": "monster", "model": "marble_bust_01", "yaw": 0, "tilt": -10, "fit": "height", "size": 170}
 	]
 }
